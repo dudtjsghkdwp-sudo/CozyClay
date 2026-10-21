@@ -46,7 +46,7 @@ import { openAssetDb, referencedAssetIds, getAsset, putAsset } from "../scene-as
 import { internWorkflowOutputs, workflowOutputRefs, resolveWorkflowOutputs } from "../workflow/workflow-resources.js";
 
 import { resourceManifest } from "../project-resources.js";
-import { isKo, ko } from "../locale.js";
+import { isKo, ko } from "../locale.js"; import { openErrorMessage, openFileRoute, projectReadFailureMessage, unsupportedOpenMessage } from "../open-file-route.js";
 import { track, bucketCount, bucketProjectAge, startExportAttempt } from "../analytics.js";
 import { mergeProjectCustomPoses } from "../project-poses.js";
 import { DEFAULT_WORKSPACE_LAYOUT, DEFAULT_DURATION_S, TIMELINE_FPS } from "../app-stage.jsx";
@@ -443,22 +443,26 @@ export function useScenes(appContext) {
 
 	async function openProject(context = null) {
 		if (!context) return runProject("project.open");
+		let picked = null;
 		try {
-			let file = null;
 			let handle = null;
 			if (hasFileSystemAccess()) {
 				handle = await pickProjectFileForOpen();
-				file = await readProjectFile(handle);
+				picked = await handle.getFile();
 			} else {
-				file = await openProjectFallback();
+				picked = (await openProjectFallback())?.file ?? null;
 			}
-			if (!file) return false;
-			const result = readProjectDocument(file.text);
-			if (!result.ok) {
-				appContext.notify(isKo ? `프로젝트를 열 수 없어요: ${result.reason}` : `Cannot open project: ${result.reason}`);
-				return false;
+			if (!picked) return { cancelled: true }; // closing the dialog is not a failure
+			const route = openFileRoute(picked);
+			if (route === "image" || route === "video" || route === "mesh") {
+				await appContext.shared.importOpenedFile(picked, route);
+				return { imported: route, fileName: picked.name };
 			}
-			result.project.savedAt = result.project.savedAt ?? file.savedAt ?? null;
+			if (route !== "project") return { failed: true, message: unsupportedOpenMessage(picked.name) }; const text = await picked.text();
+			if (!text.trim()) return { failed: true, message: projectReadFailureMessage("empty", picked.name) };
+			const result = readProjectDocument(text);
+			if (!result.ok) return { failed: true, message: projectReadFailureMessage(result.reason, picked.name) };
+			result.project.savedAt = result.project.savedAt ?? picked.lastModified ?? null;
 			appContext.shared.projectHandleRef.current = handle;
 			if (handle) await rememberRecentProject(handle, result.project.name);
 			await rehydrateProjectAssets(result.project, result.warnings);
@@ -468,11 +472,10 @@ export function useScenes(appContext) {
 			appContext.notify(`${isKo ? `프로젝트 열림: ${result.project.name}` : `Project opened: ${result.project.name}`}${projectProblemsNotice(result.problems)}`);
 			return true;
 		} catch (err) {
-			if (err?.name === "AbortError") return false;
+			if (err?.name === "AbortError") return { cancelled: true };
 			if (err?.code) throw err;
 			console.error("openProject failed", err);
-			appContext.notify(ko("Could not open the project", "프로젝트를 열지 못했어요"));
-			return false;
+			return { failed: true, message: openErrorMessage(err, picked?.name) };
 		}
 	}
 
@@ -489,10 +492,7 @@ export function useScenes(appContext) {
 			}
 			const file = await readProjectFile(handle);
 			const result = readProjectDocument(file.text);
-			if (!result.ok) {
-				appContext.notify(isKo ? `프로젝트를 열 수 없어요: ${result.reason}` : `Cannot open project: ${result.reason}`);
-				return false;
-			}
+			if (!result.ok) return { failed: true, message: projectReadFailureMessage(result.reason, handle?.name) };
 			result.project.savedAt = result.project.savedAt ?? file.savedAt ?? null;
 			appContext.shared.projectHandleRef.current = handle;
 			await rememberRecentProject(handle, result.project.name);

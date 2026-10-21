@@ -64,3 +64,22 @@ const controls = readFileSync(new URL("../src/controls.jsx", import.meta.url), "
 assert.ok(controls.includes("leftOrbit && e.button === 0 && !e.altKey"), "plain left orbit is opt-in");
 assert.ok(readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8").includes("leftOrbit={lookThroughShot && !ikMode}"));
 console.log("PASS viewport mouse orbit stays in sync with the per-scene angle");
+
+// File > Open: every file is listed, then routed by type with a Korean reason.
+import { openFileRoute, projectReadFailureMessage, unsupportedOpenMessage } from "../src/open-file-route.js";
+import { readProjectDocument } from "../src/project.js";
+assert.equal(openFileRoute(f("내 프로젝트.cclayproject")), "project");
+assert.equal(openFileRoute(f("C:\\Users\\신영선\\a.JSON")), "project");
+assert.equal(openFileRoute(f("clip.MP4", "video/mp4")), "video");
+assert.equal(openFileRoute(f("shot.mkv")), "video");
+assert.equal(openFileRoute(f("ref.heic")), "image");
+assert.equal(openFileRoute(f("car.glb")), "mesh");
+assert.equal(openFileRoute(f("notes.docx")), "unsupported");
+for (const reason of ["corrupt", "not-a-project", "future", "scenes-invalid", "empty", "unreadable"]) assert.ok(projectReadFailureMessage(reason, "a.json").includes("a.json"));
+assert.ok(unsupportedOpenMessage("notes.docx").includes(".docx"));
+assert.equal(readProjectDocument(readFileSync(new URL("../public/scenes/korean-street.cclayproject", import.meta.url), "utf8")).ok, true, "the bundled street project opens");
+const projectSource = readFileSync(new URL("../src/project.js", import.meta.url), "utf8");
+assert.ok(projectSource.includes("excludeAcceptAllOption: false") && !projectSource.includes("input.accept = `${PROJECT_EXTENSION}"), "Open lists all files");
+const commandSource = readFileSync(new URL("../src/commands/project.js", import.meta.url), "utf8");
+assert.ok(commandSource.includes("result?.cancelled") && !commandSource.includes("check the project dialog"), "cancel is not a failure");
+console.log("PASS File > Open lists all files and explains every failure");

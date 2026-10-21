@@ -1,3 +1,4 @@
+import { ko } from "../locale.js";
 import { studioActionDeclaration } from "../studio-actions.js";
 import { fail } from "./shared.js";
 import { PREVIS_MODES } from "../project.js";
@@ -60,7 +61,10 @@ export function register(registry, ports) {
 	for (const declaration of [opening, fresh, starter, restore, browse]) registry.register({ ...declaration,
 		available, run: async (args, context) => {
 			const result = await owner().projectAction(declaration.id, args, context);
-			if (result === false) fail("TARGET_NOT_READY", "The project was not opened; check the project dialog.");
+			if (result?.cancelled) return { affectedIds: [], output: { opened: false, cancelled: true }, summary: "The file picker was closed; nothing was opened." };
+			if (result?.imported) return { affectedIds: [], output: { opened: false, imported: result.imported }, summary: `Imported ${result.fileName} into the scene.` };
+			if (result?.failed) fail("INVALID_ARGUMENT", result.message);
+			if (result === false) fail("TARGET_NOT_READY", ko("The project was not opened.", "프로젝트를 열지 못했어요. 다시 시도해 주세요."));
 			return { affectedIds: [owner().metadata().activeSceneId], output: { opened: result === true }, summary: `${declaration.label}.` };
 		} });
 }

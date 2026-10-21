@@ -435,7 +435,9 @@ export async function pickProjectFileForSave(suggestedName) {
 }
 
 export async function pickProjectFileForOpen() {
-	const [handle] = await window.showOpenFilePicker({ types: PICKER_TYPES, multiple: false });
+	// No type filter: Windows Chrome would otherwise show only *.cclayproject
+	// and hide the files people actually reach for. File > Open routes by type.
+	const [handle] = await window.showOpenFilePicker({ multiple: false, excludeAcceptAllOption: false });
 	return handle;
 }
 
@@ -447,7 +449,7 @@ export async function writeProjectFile(handle, serialized) {
 
 export async function readProjectFile(handle) {
 	const file = await handle.getFile();
-	return { name: file.name.replace(/\.cclayproject$|\.json$/i, ""), text: await file.text(), savedAt: file.lastModified };
+	return { name: file.name.replace(/\.cclayproject$|\.json$/i, ""), file, text: await file.text(), savedAt: file.lastModified };
 }
 
 export function downloadProjectFallback(serialized, name) {
@@ -464,11 +466,11 @@ export function openProjectFallback() {
 	return new Promise((resolve) => {
 		const input = document.createElement("input");
 		input.type = "file";
-		input.accept = `${PROJECT_EXTENSION},.json,application/json`;
+		// No accept filter: every file is listed; File > Open routes by type.
 		input.onchange = async () => {
 			const file = input.files?.[0];
 			if (!file) return resolve(null);
-			resolve({ name: file.name.replace(/\.cclayproject$|\.json$/i, ""), text: await file.text(), savedAt: file.lastModified });
+			resolve({ name: file.name.replace(/\.cclayproject$|\.json$/i, ""), file, savedAt: file.lastModified });
 		};
 		input.oncancel = () => resolve(null);
 		input.click();

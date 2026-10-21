@@ -28,7 +28,7 @@ import * as THREE from "three";
 import { restorePlaybackBones, snapshotPlaybackBones } from "./motion/rig-snapshot.js";
 import { applyTakeFrame } from "./motion3/playback.js";
 
-import { FlyControls, aimAt, forwardFrom } from "./controls.jsx"; import { subjectPivot } from "./shell/scene-camera-angle.js";
+import { FlyControls, aimAt, forwardFrom } from "./controls.jsx"; import { referenceFileToStill } from "./reference-media.js"; import { subjectPivot } from "./shell/scene-camera-angle.js";
 import { createLiveControl, loadLiveWorkspaceId, mintLiveWorkspaceId } from "./live-control.js";
 import { createFirstEditTracker, semanticEditKind } from "./semantic-edit.js";
 
@@ -1313,7 +1313,7 @@ export default function App() {
 		return () => clearTimeout(timer);
 	}, [objectDeleteUndo]);
 
-	const scenesDomain = useScenes(appContext.forRender({
+	async function importOpenedFile(file, route) { if (route === "mesh") return objectsDomain.importMesh(file); return objectsDomain.importCutout(await referenceFileToStill(file)); } const scenesDomain = useScenes(appContext.forRender({ get importOpenedFile() { return importOpenedFile; },
 		get activeSceneIdRef() { return activeSceneIdRef; },
 		get actorStageRef() { return actorStageRef; },
 		get customPoses() { return customPoses; },
