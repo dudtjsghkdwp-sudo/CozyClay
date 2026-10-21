@@ -4,6 +4,8 @@ import { WALK_DIRECTIONS, buildWalkSpec } from './manual-walk.js';
 import streetObjects from './korean-street-objects.json';
 import SceneAngleControls from './SceneAngleControls.jsx';
 import CameraCommandBox from './CameraCommandBox.jsx';
+import ReferenceVideoPanel, { ReferenceViewportOverlay } from './ReferenceVideoPanel.jsx';
+import { REFERENCE_ADDED_EVENT } from '../reference-video.js';
 import './manual-previs.css';
 
 export default function ManualPrevisPanel() {
@@ -26,6 +28,7 @@ export default function ManualPrevisPanel() {
       else setMessage('한국 길거리 배경을 장면에 추가했습니다. 카메라를 마우스로 돌려 확인해 보세요.');
     }).catch(e => { setError(true); setMessage(e.message); });
   }, [s.projectName, s.projectStartupOpen, s.activeSceneId, s.sceneObjects.length]);
+  useEffect(() => { const onAdd = () => setOpen(true); globalThis.addEventListener(REFERENCE_ADDED_EVENT, onAdd); return () => globalThis.removeEventListener(REFERENCE_ADDED_EVENT, onAdd); }, []);
   if (s.embedMode) return null;
   async function action(id, args = {}) {
     const r = await s.appContext.bus.run(id, args, { origin: 'ui' });
@@ -74,6 +77,7 @@ export default function ManualPrevisPanel() {
     setMessage(`저장 완료: ${r.output.fileName} — 브라우저 다운로드를 확인하세요.`);
   }
   return <section className="manual-previs" aria-label="직접 프리비즈 조작">
+    <ReferenceViewportOverlay />
     <button className="manual-heading" onClick={() => setOpen(!open)} aria-expanded={open}>직접 조작 · 카메라 / 걷기 / 영상 <span>{open ? '−' : '+'}</span></button>
     {open && <div className="manual-body">
       <h3>1. 카메라</h3>
@@ -81,6 +85,7 @@ export default function ManualPrevisPanel() {
       <div className="manual-row"><button disabled={busy} onClick={() => { s.enterShotLook(); setMessage('마우스로 구도를 바꾼 뒤 현재 구도 저장을 누르세요.'); }}>마우스로 카메라 조절</button><button disabled={busy || !s.lookThroughShot} onClick={() => perform(saveCamera)}>현재 구도 저장</button></div>
       <p>Alt + 왼쪽 드래그: 회전 · 휠: 앞뒤<br/>휠 버튼 드래그: 상하좌우 · 오른쪽 드래그: 시선<br/>오른쪽 누른 채 W/A/S/D: 이동 · Q/E: 위아래</p>
       <p className="manual-note">타임라인에서 프레임을 고른 뒤 구도를 저장하세요. 저장한 샷은 자동 레일 대신 카메라 키를 사용합니다.</p>
+      <ReferenceVideoPanel busy={busy} perform={perform} action={action} setMessage={setMessage} character={character} />
       <CameraCommandBox busy={busy} perform={perform} action={action} setMessage={setMessage} character={character} />
       <SceneAngleControls busy={busy} perform={perform} action={action} setMessage={setMessage} character={character} />
       <h3>2. 인물 걷기</h3>

@@ -731,6 +731,32 @@ export function createAgentHandler({ auth = defaultAuth, codex, models, codexBas
 			} catch (error) { json(res, error.status === 401 ? 401 : 502, { error: errorInfo(error) }); }
 			return true;
 		}
+		// Reference-video analysis (구도·카메라·조명 분석): one non-tool request with
+		// keyframes to the selected model. A text-only model answers 422 TEXT_ONLY.
+		if (path === "/agent/vision" && req.method === "POST") {
+			let value;
+			try {
+				value = await readBody(req, IMAGE_BODY_LIMIT);
+				if (typeof value.model !== "string" || !value.model || typeof value.prompt !== "string" || !Array.isArray(value.images) || !value.images.length || value.images.length > 24 || !value.images.every(url => typeof url === "string" && /^data:image\/[a-z+]+;base64,/.test(url))) throw new Error("Invalid request.");
+			} catch { json(res, 400, { error: { code: "INVALID", message: "invalid request" } }); return true; }
+			try {
+				const registry = await ensureWorkflowModels();
+				const { resolveModel } = await import("./providers.mjs");
+				const slash = value.model.indexOf("/");
+				const provider = slash === -1 ? "openai-codex" : value.model.slice(0, slash);
+				const model = registry.getModel?.(provider, slash === -1 ? value.model : value.model.slice(slash + 1)) ?? (await resolveModel(value.model, { models: registry })).model;
+				if (!model) { json(res, 404, { error: { code: "NO_MODEL", message: "model not found" } }); return true; }
+				if (!(model.input ?? ["text"]).includes("image")) { json(res, 422, { error: { code: "TEXT_ONLY", message: "This model cannot read images." } }); return true; }
+				const images = value.images.map(url => { const m = /^data:([^;]+);base64,(.*)$/.exec(url); return { type: "image", data: m[2], mimeType: m[1] }; });
+				const message = await registry.completeSimple(model, {
+					messages: [{ role: "user", content: [{ type: "text", text: value.prompt }, ...images], timestamp: Date.now() }],
+				}, { signal: AbortSignal.timeout(240_000) });
+				if (message?.stopReason === "error" || message?.stopReason === "aborted") { json(res, 502, { error: { code: "MODEL_ERROR", message: message.errorMessage || "the model request failed" } }); return true; }
+				const text = (Array.isArray(message?.content) ? message.content : []).filter(part => part?.type === "text").map(part => part.text).join("");
+				json(res, 200, { text });
+			} catch (error) { json(res, error.status === 401 ? 401 : 502, { error: errorInfo(error) }); }
+			return true;
+		}
 		if (path === "/agent/image" && req.method === "POST") {
 			let value;
 			try {

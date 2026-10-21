@@ -4,3 +4,17 @@
 .manual-shots{display:flex;flex-direction:column;gap:4px;max-height:130px;overflow:auto}.manual-body .manual-shot{display:flex;justify-content:space-between;align-items:center;text-align:left}.manual-body .manual-shot small{color:#b3bac3}.manual-body .manual-shot.is-active{background:#32638c;border-color:#86b3d8}.manual-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}.manual-presets button{padding:5px 2px;font-size:11px}.manual-slider{display:flex;flex-direction:column;gap:2px;margin:6px 0}.manual-slider span{display:flex;justify-content:space-between}.manual-slider input{width:100%}
 .manual-check{display:flex;gap:6px;align-items:center;margin:4px 0;color:#c7dfef}
 .manual-command{width:100%;box-sizing:border-box;border:1px solid #6c7481;border-radius:5px;background:#202833;color:#fff;padding:6px;font:inherit;resize:vertical}.manual-help{white-space:pre-wrap;margin:4px 0;color:#c7dfef}.manual-preview ol{max-height:140px}.manual-preview small{color:#b3bac3}
+.ref-panel-preview { background: #000; border-radius: 6px; overflow: hidden; margin: 6px 0; }
+.ref-panel-preview .ref-media { display: block; width: 100%; max-height: 180px; object-fit: contain; }
+.ref-side { position: absolute; right: 12px; bottom: 12px; width: 36%; z-index: 30; pointer-events: none; background: #000; border: 1px solid rgba(255,255,255,.35); border-radius: 6px; overflow: hidden; }
+.ref-overlay { position: absolute; inset: 0; z-index: 30; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.ref-overlay .ref-frame { height: 100%; max-width: 100%; }
+.ref-frame { position: relative; width: 100%; }
+.ref-frame .ref-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ref-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ref-caption { position: absolute; left: 6px; top: 4px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
+.ref-shots { padding-left: 18px; }
+.ref-shots li { margin-bottom: 6px; }
+.ref-shots textarea { width: 100%; font-size: 12px; }
+.ref-shot-time { font-size: 11px; padding: 1px 6px; }
+.manual-check { display: flex; gap: 6px; align-items: center; font-size: 12px; }

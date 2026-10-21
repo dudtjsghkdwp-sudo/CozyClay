@@ -456,7 +456,7 @@ export function useScenes(appContext) {
 			const route = openFileRoute(picked);
 			if (route === "image" || route === "video" || route === "mesh") {
 				setProjectStartupOpen(false);
-				appContext.notify(route === "video" ? ko("Loading video…", "영상 불러오는 중… (한 장면을 추출해 장면에 추가해요)") : ko("Importing…", "불러오는 중…"));
+				appContext.notify(route === "video" ? ko("Loading reference video…", "참고 영상 불러오는 중…") : route === "image" ? ko("Loading reference image…", "참고 이미지 불러오는 중…") : ko("Importing…", "불러오는 중…"));
 				// Import as its own top-level command once project.open has
 				// finished: a bus.run started inside a running command never settles.
 				const file = picked;

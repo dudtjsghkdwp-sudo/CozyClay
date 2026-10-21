@@ -1,4 +1,6 @@
 import { useMotion } from "./domains/motion.js";
+import { addReferenceFile } from "./reference-video.js";
+import { INSERT_SCENE_IMAGE_EVENT } from "./shell/ReferenceVideoPanel.jsx";
 import { useCast } from "./domains/cast.js";
 import { useShots } from "./domains/shots.js";
 import { useObjects } from "./domains/objects.js";
@@ -1313,7 +1315,17 @@ export default function App() {
 		return () => clearTimeout(timer);
 	}, [objectDeleteUndo]);
 
-	async function importOpenedFile(file, route) { if (route === "mesh") return objectsDomain.importMesh(file); return objectsDomain.importCutout(await referenceFileToStill(file)); } const scenesDomain = useScenes(appContext.forRender({ get importOpenedFile() { return importOpenedFile; },
+	async function importOpenedFile(file, route) {
+		if (route === "mesh") return objectsDomain.importMesh(file);
+		// Images and videos open as a 참고 자료 (framing/camera/lighting reference), not scene pixels.
+		const item = await addReferenceFile(file);
+		appContext.notify(`참고 ${item.kind === "video" ? "영상" : "이미지"}으로 추가했어요: ${item.name} — 오른쪽 ‘직접 조작’ 패널의 ‘참고 영상’에서 나란히/겹쳐 보기, 컷 나누기, 분석을 할 수 있어요.`);
+	}
+	useEffect(() => {
+		const insert = (event) => { const file = event.detail?.file; if (file) void referenceFileToStill(file).then((still) => objectsDomain.importCutout(still)).catch((failure) => appContext.notify(`장면에 넣지 못했어요 — ${failure.message}`)); };
+		globalThis.addEventListener(INSERT_SCENE_IMAGE_EVENT, insert);
+		return () => globalThis.removeEventListener(INSERT_SCENE_IMAGE_EVENT, insert);
+	}); const scenesDomain = useScenes(appContext.forRender({ get importOpenedFile() { return importOpenedFile; },
 		get activeSceneIdRef() { return activeSceneIdRef; },
 		get actorStageRef() { return actorStageRef; },
 		get customPoses() { return customPoses; },
