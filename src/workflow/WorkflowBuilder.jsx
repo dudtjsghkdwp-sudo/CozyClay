@@ -28,7 +28,7 @@ import { canvasTakesPaste, fileToDataUrl, imageFileFromTransfer, pastedImageNode
 import { appendVersion, compareIndex, pinnedInputs, selectVersion, versionLabel, versionState } from "./image-versions.js";
 import { normalizeVideoForm, videoFormContract } from "./video-contract.js";
 import ShotPromptNode from "./ShotPromptNode.jsx";
-import { shotPromptFromInputs, shotPromptNodeData } from "./shot-prompt-node.js";
+import { shotPromptFromInputs, shotPromptNodeData } from "./shot-prompt-node.js"; import { REFERENCE_ACCEPT, isPlainStill, referenceFileToStill, referenceKind, referenceMimeType } from "../reference-media.js";
 
 const NODE_COLORS = { text: "#6c7cff", image: "#44c2a4", video: "#d9955b", audio: "#6bb6dc", api: "#cf8de8", "video-combiner": "#efb064", upload: "#a88cdb", concat: "#d6b55e", "motion-input": "#79b5ed", scene: "#ef759d", "shot-prompt": "#8fd4b0" };
 
@@ -254,7 +254,7 @@ function VideoCombinerNode({ id, data }) {
 }
 
 function UploadNode({ id, data }) {
-	return <NodeShell id={id} type="upload" title="Upload" icon={FiUpload}><label className="workflow-upload"><FiUpload size={18} /><span>{data.uploading ? "Reading…" : "Choose image, video, or audio"}</span><input type="file" accept="image/*,video/*,audio/*" disabled={data.uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) data.onUpload?.(id, file); }} /></label>{typeof data.image_url === "string" && data.image_url.startsWith("data:image/") && <img className="workflow-image-preview" src={data.image_url} alt={data.fileName || "Uploaded image"} />}<p className="workflow-hint">{data.fileName || "Files stay local to this browser session. Paste or drop an image onto the canvas to add one here."}</p></NodeShell>;
+	return <NodeShell id={id} type="upload" title="Upload" icon={FiUpload}><label className="workflow-upload"><FiUpload size={18} /><span>{data.uploading ? "Reading…" : "Choose image, video, or audio"}</span><input type="file" accept={`${REFERENCE_ACCEPT},audio/*`} disabled={data.uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) data.onUpload?.(id, file); }} /></label>{typeof data.image_url === "string" && data.image_url.startsWith("data:image/") && <img className="workflow-image-preview" src={data.image_url} alt={data.fileName || "Uploaded image"} />}<p className="workflow-hint">{data.fileName || "Files stay local to this browser session. Paste or drop an image onto the canvas to add one here."}</p></NodeShell>;
 }
 
 function ConcatNode({ id, data }) {
@@ -429,8 +429,9 @@ export default function WorkflowBuilder() {
 	}, [edges, setNodes]);
 
 	const uploadFile = useCallback(async (id, file) => {
-		updateNode(id, { uploading: true, fileName: file.name });
-		const kind = file.type.startsWith("video/") ? "video_url" : file.type.startsWith("audio/") ? "audio_url" : "image_url";
+		updateNode(id, { uploading: true, fileName: file.name }); const media = referenceKind(file), kind = media === "video" ? "video_url" : media !== "image" && file.type.startsWith("audio/") ? "audio_url" : "image_url";
+		// Any picture format becomes a PNG/JPEG still the scene and models accept.
+		if (kind === "image_url" && !isPlainStill(file)) try { file = await referenceFileToStill(file); } catch (error) { updateNode(id, { uploading: false }); toast.error(`Could not read that image (${error.message})`); return; }
 		const localUrl = kind === "image_url" ? await fileToDataUrl(file) : URL.createObjectURL(file);
 		try {
 			if (kind === "image_url") {
@@ -442,7 +443,7 @@ export default function WorkflowBuilder() {
 		} catch (error) {
 			toast(`Scene import unavailable; local preview kept (${error.message})`);
 		}
-		updateNode(id, { uploading: false, fileName: file.name, mimeType: file.type, fileUrl: localUrl, localPreview: true, [kind]: localUrl, outputs: [{ value: localUrl }] });
+		updateNode(id, { uploading: false, fileName: file.name, mimeType: referenceMimeType(file), fileUrl: localUrl, localPreview: true, [kind]: localUrl, outputs: [{ value: localUrl }] });
 		toast.success("File kept in this browser session");
 	}, [updateNode]);
 	const saveWorkflow = useCallback(() => {

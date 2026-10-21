@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Foldout from "./Foldout.jsx";
 import { ko, isKo } from "../locale.js";
 import { readReferenceImage } from "./ReferenceImageField.jsx";
+import { REFERENCE_ACCEPT, isReferenceMedia } from "../reference-media.js";
 import { createHttpTransport } from "../workflow/agent-client.js";
 import "./pose-image.css";
 
@@ -72,7 +73,7 @@ export default function PoseImagePanel({ hidden, capturePoseImage }) {
 	const elapsed = busySince ? Math.max(0, Math.round((Date.now() - busySince) / 1000)) : 0;
 	const addFiles = async (files) => {
 		const room = USER_REFERENCES_MAX - store.refs.length;
-		const picked = [...files].filter((file) => file.type.startsWith("image/")).slice(0, room);
+		const picked = [...files].filter((file) => isReferenceMedia(file)).slice(0, room);
 		try {
 			const read = await Promise.all(picked.map((file) => readReferenceImage(file)));
 			setPoseImageState({ refs: [...store.refs, ...read].slice(0, USER_REFERENCES_MAX), error: "" });
@@ -119,7 +120,7 @@ export default function PoseImagePanel({ hidden, capturePoseImage }) {
 							onClick={() => fileRef.current?.click()}>＋</button>
 					)}
 				</div>
-				<input ref={fileRef} type="file" accept="image/*" multiple className="multimodel-file-input" data-testid="pose-image-ref-input"
+				<input ref={fileRef} type="file" accept={REFERENCE_ACCEPT} multiple className="multimodel-file-input" data-testid="pose-image-ref-input"
 					onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ""; addFiles(files); }} />
 
 				<textarea

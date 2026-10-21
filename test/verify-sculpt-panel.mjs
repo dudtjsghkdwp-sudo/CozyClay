@@ -45,7 +45,7 @@ const sheet = "data:image/png;base64,BBBB";
 	assert.match(html, /Drop or paste a reference image/);
 	assert.match(tag(html, "sculpt-dropzone"), /role="button"/);
 	assert.match(tag(html, "sculpt-dropzone"), /tabindex="0"/, "drop zone is keyboard reachable");
-	assert.match(tag(html, "sculpt-reference-input"), /accept="image\/png,image\/jpeg,image\/webp"/);
+	assert.match(tag(html, "sculpt-reference-input"), /accept="image\/\*,video\/\*,[^"]*\.mov[^"]*"/);
 	assert.ok(tag(html, "sculpt-start"), "Start shows when idle");
 	assert.doesNotMatch(tag(html, "sculpt-start"), /disabled/, "Start is enabled when canStart and no refusal");
 	assert.equal(tag(html, "sculpt-cancel"), null, "no Cancel when idle");

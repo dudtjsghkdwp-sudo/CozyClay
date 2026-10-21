@@ -1,14 +1,14 @@
 import { useState, useRef } from "react";
 import { ko, isKo } from "../locale.js";
-import { ASSET_IMAGE_TYPES, downscaleTarget } from "../scene-assets.js";
+import { downscaleTarget } from "../scene-assets.js";
+import { REFERENCE_ACCEPT, referenceFileToStill } from "../reference-media.js";
 
 const REFERENCE_IMAGE_MAX_DIMENSION = 1024;
 
-export async function readReferenceImage(file, { maxDimension = REFERENCE_IMAGE_MAX_DIMENSION } = {}) {
-	if (!file) throw new Error("No file");
-	if (!ASSET_IMAGE_TYPES.includes(String(file.type).toLowerCase())) {
-		throw new Error("unsupported image type");
-	}
+export async function readReferenceImage(source, { maxDimension = REFERENCE_IMAGE_MAX_DIMENSION } = {}) {
+	if (!source) throw new Error("No file");
+	// Any image format or any video: a video contributes one still frame.
+	const file = await referenceFileToStill(source);
 	const dataUrl = await new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onerror = () => reject(new Error("could not read the file"));
@@ -52,7 +52,7 @@ export default function ReferenceImageField({ label, hint, value, alt, onPick, o
 					className="reference-slot-thumb"
 					data-empty={value ? undefined : "true"}
 					onClick={() => inputRef.current?.click()}
-					title={ko("Choose a reference picture", "참고 이미지를 선택합니다")}
+					title={ko("Choose a reference picture or video", "참고 이미지나 영상을 선택합니다")}
 				>
 					{value
 						? <img src={value} alt={alt ?? label} />
@@ -61,7 +61,7 @@ export default function ReferenceImageField({ label, hint, value, alt, onPick, o
 				<div className="reference-slot-copy">
 					<p className="inspector-hint">{hint}</p>
 					<button type="button" className="btn ghost small" onClick={() => inputRef.current?.click()}>
-						{value ? ko("Replace", "교체") : ko("Choose image", "이미지 선택")}
+						{value ? ko("Replace", "교체") : ko("Choose image or video", "이미지·영상 선택")}
 					</button>
 				</div>
 			</div>
@@ -70,7 +70,7 @@ export default function ReferenceImageField({ label, hint, value, alt, onPick, o
 				ref={inputRef}
 				type="file"
 				className="multimodel-file-input"
-				accept="image/*"
+				accept={REFERENCE_ACCEPT}
 				{...inputProps}
 				onChange={async (event) => {
 					const file = event.target.files?.[0];

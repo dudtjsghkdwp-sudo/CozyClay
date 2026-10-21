@@ -1,7 +1,7 @@
-// CozyClay UI locale. English is the default; Korean is opt-in.
+// CozyClay UI locale. Korean is the default for this local studio.
 //
 // An explicit choice saved in localStorage wins. Without one, the UI always
-// starts in English regardless of browser or operating-system language.
+// starts in Korean regardless of browser or operating-system language.
 // The locale is fixed for the lifetime of the page — every label goes through
 // ko() at render time, so switching saves the choice and reloads.
 const KEY = "cozyclay.locale";
@@ -15,7 +15,7 @@ function stored() {
 	}
 }
 
-export const LOCALE = stored() ?? "en";
+export const LOCALE = stored() ?? "ko";
 export const isKo = LOCALE === "ko";
 // Whether the operator has ever picked a language. A Korean browser that has
 // not chosen yet still gets the English default, so the Settings trigger wears
@@ -36,3 +36,4 @@ export function setLocale(next) {
 	}
 	window.location.reload();
 }
+
