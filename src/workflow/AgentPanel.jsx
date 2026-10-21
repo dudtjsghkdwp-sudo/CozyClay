@@ -32,6 +32,8 @@ import {
 	readStoredPanelWidth,
 	readStoredSupervisor,
 	storeModel,
+	readDefaultApplied,
+	storeDefaultApplied,
 	storePanelWidth,
 	storeSupervisor,
 	STUDIO_SESSION_STORAGE_KEY,
@@ -335,7 +337,12 @@ export default function AgentPanel({
 		setModelRoles(advertised?.roles?.byMain ?? null);
 		// A saved or removed key arrives through this same path, so a selection the
 		// panel opened with is dropped here the moment its provider cannot run it.
-		setModel((current) => nextSelectedModel(providers, list, current));
+		const fallback = advertised?.defaultModel;
+		// The server's default (LOCAL_LLM_DEFAULT_MODEL) wins once over a stored
+		// choice; after that the user's own pick sticks.
+		if (fallback && list.some((entry) => entry.id === fallback) && modelIsSelectable(providers, fallback) && readDefaultApplied() !== fallback) {
+			storeDefaultApplied(fallback); storeModel(fallback); setModel(fallback);
+		} else setModel((current) => nextSelectedModel(providers, list, current));
 		setModelsState("ready");
 		return true;
 	}, []);

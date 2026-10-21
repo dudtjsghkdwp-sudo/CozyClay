@@ -744,7 +744,13 @@ export function createAgentHandler({ auth = defaultAuth, codex, models, codexBas
 				const { resolveModel } = await import("./providers.mjs");
 				const slash = value.model.indexOf("/");
 				const provider = slash === -1 ? "openai-codex" : value.model.slice(0, slash);
-				const model = registry.getModel?.(provider, slash === -1 ? value.model : value.model.slice(slash + 1)) ?? (await resolveModel(value.model, { models: registry })).model;
+				let model = registry.getModel?.(provider, slash === -1 ? value.model : value.model.slice(slash + 1)) ?? (await resolveModel(value.model, { models: registry })).model;
+				// A text-only selection falls back to a vision-capable local model
+				// (LOCAL_LLM_DEFAULT_MODEL first, then LOCAL_LLM_MODELS in order).
+				if (!(model?.input ?? ["text"]).includes("image")) {
+					const ids = [process.env.LOCAL_LLM_DEFAULT_MODEL, ...String(process.env.LOCAL_LLM_MODELS ?? "").split(/[,\s]+/)].map(id => String(id ?? "").trim().replace(/^local\//, "")).filter(Boolean);
+					model = ids.map(id => registry.getModel?.("local", id)).find(candidate => (candidate?.input ?? []).includes("image")) ?? model;
+				}
 				if (!model) { json(res, 404, { error: { code: "NO_MODEL", message: "model not found" } }); return true; }
 				if (!(model.input ?? ["text"]).includes("image")) { json(res, 422, { error: { code: "TEXT_ONLY", message: "This model cannot read images." } }); return true; }
 				const images = value.images.map(url => { const m = /^data:([^;]+);base64,(.*)$/.exec(url); return { type: "image", data: m[2], mimeType: m[1] }; });
@@ -753,7 +759,7 @@ export function createAgentHandler({ auth = defaultAuth, codex, models, codexBas
 				}, { signal: AbortSignal.timeout(240_000) });
 				if (message?.stopReason === "error" || message?.stopReason === "aborted") { json(res, 502, { error: { code: "MODEL_ERROR", message: message.errorMessage || "the model request failed" } }); return true; }
 				const text = (Array.isArray(message?.content) ? message.content : []).filter(part => part?.type === "text").map(part => part.text).join("");
-				json(res, 200, { text });
+				json(res, 200, { text, model: `${model.provider}/${model.id}` });
 			} catch (error) { json(res, error.status === 401 ? 401 : 502, { error: errorInfo(error) }); }
 			return true;
 		}

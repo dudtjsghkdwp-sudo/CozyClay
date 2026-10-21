@@ -422,9 +422,14 @@ export async function listAgentModels({ models, codex, auth = defaultAuth, keys 
 	// with six providers in play the id has to be the provider/id key so two
 	// providers' same-named model never collide there, while each provider's
 	// own `models[]` keeps the bare id.
+	const flat = providers.flatMap((provider) => provider.models.map((model) => ({ ...model, id: model.key })));
+	// LOCAL_LLM_DEFAULT_MODEL (e.g. qwen2.5vl:3b): the model the panel opens with.
+	const wanted = String(env.LOCAL_LLM_DEFAULT_MODEL ?? "").trim();
+	const defaultModel = wanted ? flat.find((entry) => entry.id === wanted || entry.id === `local/${wanted}`)?.id ?? null : null;
 	return {
 		providers,
-		models: providers.flatMap((provider) => provider.models.map((model) => ({ ...model, id: model.key }))),
+		models: flat,
 		roles: rolesByMain({ providers }),
+		...(defaultModel ? { defaultModel } : {}),
 	};
 }

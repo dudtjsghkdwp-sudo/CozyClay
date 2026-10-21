@@ -287,6 +287,10 @@ export function storeSupervisor(enabled, storage = globalThis.localStorage) {
 	}
 }
 
+const DEFAULT_APPLIED_KEY = "cozyclay.agent.default-model-applied";
+export function readDefaultApplied(storage = globalThis.localStorage) { try { return storage?.getItem(DEFAULT_APPLIED_KEY) ?? null; } catch { return null; } }
+export function storeDefaultApplied(key, storage = globalThis.localStorage) { try { storage?.setItem(DEFAULT_APPLIED_KEY, key); } catch { /* private mode */ } }
+
 /** The model to open with: the remembered key when it is still advertised,
  * otherwise the first model the sidecar listed. */
 export function preferredModel(models, stored = readStoredModel()) {
