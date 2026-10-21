@@ -309,8 +309,8 @@ export async function requestVisionAnalysis({ model, images, signal, timeoutMs =
 			body: JSON.stringify({ model, prompt: ANALYSIS_PROMPT, images }) });
 	} catch (error) {
 		if (signal?.aborted) throw Object.assign(new Error("분석을 취소했어요."), { cancelled: true });
-		if (timeout.aborted) throw new Error(`분석이 ${Math.round(timeoutMs / 60000)}분 안에 끝나지 않았어요. 컴퓨터가 느리면 샷 수를 줄이거나 잠시 후 다시 시도해 주세요.`);
-		throw new Error(`에이전트 서버에 연결하지 못했어요 (${error?.message || "네트워크 오류"}). CozyClay 실행 창이 켜져 있는지 확인해 주세요.`);
+		if (timeout.aborted) throw new Error(`분석이 ${Math.round(timeoutMs / 60000)}분 안에 끝나지 않았어요. 컴퓨터가 느리면 샷 수를 줄이거나 잠시 후 다시 시도해 주세요.`, { cause: error });
+		throw new Error(`에이전트 서버에 연결하지 못했어요 (${error?.message || "네트워크 오류"}). CozyClay 실행 창이 켜져 있는지 확인해 주세요.`, { cause: error });
 	}
 	const body = await response.json().catch(() => ({}));
 	if (response.status === 502 && /ECONNREFUSED|fetch failed|connect/i.test(body?.error?.message ?? "")) throw new Error("Ollama가 실행 중이 아니에요. ‘CozyClay 실행’을 다시 누르거나 Ollama 앱을 켜 주세요.");
