@@ -18,3 +18,6 @@
 .ref-shots textarea { width: 100%; font-size: 12px; }
 .ref-shot-time { font-size: 11px; padding: 1px 6px; }
 .manual-check { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.ref-job { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 6px; border-radius: 6px; background: rgba(232,163,61,.15); margin: 4px 0; flex-wrap: wrap; }
+.ref-spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: ref-spin .8s linear infinite; }
+@keyframes ref-spin { to { transform: rotate(360deg); } }

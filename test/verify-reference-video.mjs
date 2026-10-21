@@ -6,6 +6,9 @@ const times = Array.from({ length: 80 }, (_, i) => i / 8);
 const diffs = times.map((t, i) => (i === 0 ? 0 : i === 24 || i === 56 ? 0.4 : 0.01 + (i > 30 && i < 50 ? 0.03 : 0)));
 assert.deepEqual(detectCuts(diffs, times), [3, 7]);
 assert.deepEqual(detectCuts(times.map(() => 0.05), times), [], "steady motion is not a cut");
+const dance = times.map((t, i) => (i === 0 ? 0 : i === 40 ? 0.29 : 0.09 + 0.04 * Math.sin(i * 1.7)));
+assert.deepEqual(detectCuts(dance, times), [5], "fast dancing stays one shot; the spike is a cut");
+assert.deepEqual(detectCuts(dance.map((v, i) => (i === 40 ? 0.12 : v)), times), [], "a weak bump is not a cut at normal sensitivity");
 assert.deepEqual(cutsToRanges([3, 7], 10), [{ start: 0, end: 3 }, { start: 3, end: 7 }, { start: 7, end: 10 }]);
 assert.equal(frameDifference(new Uint8Array([0, 0, 0]), new Uint8Array([255, 255, 255])), 1);
 

@@ -756,7 +756,7 @@ export function createAgentHandler({ auth = defaultAuth, codex, models, codexBas
 				const images = value.images.map(url => { const m = /^data:([^;]+);base64,(.*)$/.exec(url); return { type: "image", data: m[2], mimeType: m[1] }; });
 				const message = await registry.completeSimple(model, {
 					messages: [{ role: "user", content: [{ type: "text", text: value.prompt }, ...images], timestamp: Date.now() }],
-				}, { signal: AbortSignal.timeout(240_000) });
+				}, { signal: AbortSignal.timeout(330_000) });
 				if (message?.stopReason === "error" || message?.stopReason === "aborted") { json(res, 502, { error: { code: "MODEL_ERROR", message: message.errorMessage || "the model request failed" } }); return true; }
 				const text = (Array.isArray(message?.content) ? message.content : []).filter(part => part?.type === "text").map(part => part.text).join("");
 				json(res, 200, { text, model: `${model.provider}/${model.id}` });

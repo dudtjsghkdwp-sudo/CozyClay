@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useStudioShell } from './studio-shell-context.js';
 import { REFERENCE_ACCEPT } from '../reference-media.js';
-import { LIGHTING_LABEL_KO, VISION_HELP_KO, addReferenceFile, analysisToShot, analyzeCuts, rangesToSegments, referenceStore, requestVisionAnalysis, shotKeyframes } from '../reference-video.js';
+import { LIGHTING_LABEL_KO, addReferenceFile, analysisToShot, analyzeCuts, rangesToSegments, referenceStore, requestVisionAnalysis, shotKeyframes } from '../reference-video.js';
 import { shotsFromSegments, segmentsEndFrame } from './camera-command.js';
 import { readStoredModel } from '../workflow/agent-client.js';
 
 // 참고 영상: read framing, camera and lighting from a reference — the video
 // never enters the 3D scene. Synced to the playhead; side-by-side or overlaid.
 export const INSERT_SCENE_IMAGE_EVENT = 'cozyclay:insert-scene-image';
+const clock = () => Date.now();
 const sec = (t) => `${t.toFixed(1)}초`;
 const useRefs = () => useSyncExternalStore(referenceStore.subscribe, referenceStore.get);
 
@@ -58,6 +59,11 @@ export default function ReferenceVideoPanel({ busy, perform, action, setMessage,
   const fileRef = useRef(null);
   const [progress, setProgress] = useState(null);
   const [aiNote, setAiNote] = useState('');
+  const [job, setJob] = useState(null);
+  const [cutSensitivity, setCutSensitivity] = useState(1);
+  const [elapsed, setElapsed] = useState(0);
+  const jobStarted = job?.started;
+  useEffect(() => { if (!jobStarted) return undefined; const id = setInterval(() => setElapsed(Math.floor((clock() - jobStarted) / 1000)), 1000); return () => { clearInterval(id); setElapsed(0); }; }, [jobStarted]);
   const fps = s.tlFps || 24;
   const setView = (patch) => referenceStore.set((st) => ({ view: { ...st.view, ...patch } }));
 
@@ -72,7 +78,7 @@ export default function ReferenceVideoPanel({ busy, perform, action, setMessage,
     if (item.kind !== 'video') throw new Error('컷 찾기는 영상에서만 할 수 있어요.');
     setProgress(0); setMessage('컷(장면 전환)을 찾는 중…');
     try {
-      const { cuts, shots } = await analyzeCuts(item, { onProgress: setProgress });
+      const { cuts, shots } = await analyzeCuts(item, { onProgress: setProgress, sensitivity: cutSensitivity });
       referenceStore.update(item.id, { cuts, shots });
       setMessage(`컷 ${cuts.length}개를 찾아 ${shots.length}개 샷으로 나눴어요. 필요하면 샷별 설명을 고친 뒤 ‘참고 영상 컷에 맞춰 샷 나누기’를 누르세요.`);
     } finally { setProgress(null); }
@@ -88,20 +94,38 @@ export default function ReferenceVideoPanel({ busy, perform, action, setMessage,
     s.setTlFrame(segments[0].startFrame); s.enterShotLook?.();
     setMessage(`참고 영상과 같은 타이밍으로 ${segments.length}개 샷을 만들었어요. 샷별 설명의 카메라 단어(정면/측면/로우/클로즈업…)가 각도로 들어가요. Ctrl+Z로 되돌릴 수 있어요.`);
   }
+  // Analysis runs outside `perform` so it never blocks the rest of the panel,
+  // one shot per request so progress is visible and each gets its own timeout.
   async function analyze() {
-    const model = readStoredModel();
-    if (!model) throw new Error('에이전트 패널에서 먼저 모델을 연결해 주세요. ' + VISION_HELP_KO);
-    const shots = item.kind === 'image' ? [{ start: 0, end: Math.max(1, s.tlFrameCount / fps), heuristic: '' }] : item.shots;
-    if (!shots?.length) throw new Error('먼저 ‘컷 찾기’를 눌러 주세요.');
-    setAiNote(''); setMessage(`키프레임 ${shots.length}장을 ${model} 모델에 보내 분석 중… (로컬 CPU 모델은 몇 분 걸릴 수 있어요)`);
+    if (job) return;
+    const target = item;
+    const model = readStoredModel() || 'local/qwen2.5vl:3b';
+    const shots = target.kind === 'image' ? [{ start: 0, end: Math.max(1, s.tlFrameCount / fps), heuristic: '', text: '' }] : target.shots;
+    if (!shots?.length) { notifyError('먼저 ‘컷 찾기’를 눌러 주세요.'); return; }
+    const controller = new AbortController();
+    const started = clock();
+    setAiNote('');
+    setJob({ index: 0, total: shots.length, started, controller, phase: '키프레임 추출 중…' });
     try {
-      const images = await shotKeyframes(item, shots);
-      const result = await requestVisionAnalysis({ model, images });
-      const next = shots.map((shot, i) => { const a = analysisToShot(result[i] ?? result[result.length - 1]); return { ...shot, text: a.text, angle: a.angle, size: a.size, lightingPreset: a.lightingPreset }; });
-      referenceStore.update(item.id, { shots: next });
-      setMessage(`분석 완료: ${next.length}개 샷. 설명을 고칠 수 있고, ‘컷에 맞춰 샷 나누기’로 카메라 각도를 적용해요.`);
-    } catch (e) { if (e.textOnly) setAiNote(e.message); throw e; }
+      const images = await shotKeyframes(target, shots);
+      for (let i = 0; i < shots.length; i++) {
+        if (controller.signal.aborted) throw Object.assign(new Error('분석을 취소했어요.'), { cancelled: true });
+        setJob((j) => j && { ...j, index: i, phase: `분석 중… (샷 ${i + 1}/${shots.length}, 약 1~2분)` });
+        const result = await requestVisionAnalysis({ model, images: [images[i]], signal: controller.signal });
+        const a = analysisToShot(result[0]);
+        if (target.kind === 'image') referenceStore.update(target.id, { shots: [{ ...shots[0], text: a.text, angle: a.angle, size: a.size, lightingPreset: a.lightingPreset }] });
+        else referenceStore.update(target.id, (it) => ({ shots: it.shots.map((sh, j) => j === i ? { ...sh, text: a.text, angle: a.angle, size: a.size, lightingPreset: a.lightingPreset } : sh) }));
+      }
+      const secs = Math.round((clock() - started) / 1000);
+      setMessage(`분석 완료: ${shots.length}개 샷 (${secs}초). 샷별 설명을 고칠 수 있고, ‘참고 영상 컷에 맞춰 샷 나누기’로 카메라 각도를 적용해요.`);
+      s.appContext?.notify?.(`구도·카메라·조명 분석 완료 (${shots.length}개 샷, ${secs}초)`);
+    } catch (e) {
+      if (e.textOnly) setAiNote(e.message);
+      if (e.cancelled) setMessage('분석을 취소했어요.');
+      else notifyError(`분석 실패 — ${e.message}`);
+    } finally { setJob(null); }
   }
+  function notifyError(text) { setMessage(text); s.appContext?.notify?.(text); }
   const editShot = (i, patch) => referenceStore.update(item.id, (it) => ({ shots: it.shots.map((sh, j) => j === i ? { ...sh, ...patch } : sh) }));
 
   return <>
@@ -123,9 +147,11 @@ export default function ReferenceVideoPanel({ busy, perform, action, setMessage,
       <p className="manual-note">카메라를 마우스로 돌려 참고 영상과 구도를 맞춘 뒤 ‘이 장면에 각도 적용’이나 ‘현재 구도 저장’을 누르세요.</p>
       <div className="manual-row">
         {item.kind === 'video' && <button disabled={busy} onClick={() => perform(findCuts)}>{progress != null ? `컷 찾는 중 ${Math.round(progress * 100)}%` : '컷 찾기'}</button>}
-        <button disabled={busy || (item.kind === 'video' && !item.shots.length)} onClick={() => perform(analyze)}>구도·카메라·조명 분석 (AI)</button>
+        <button disabled={Boolean(job) || (item.kind === 'video' && !item.shots.length)} title={item.kind === 'video' && !item.shots.length ? '먼저 컷 찾기를 눌러 주세요' : undefined} onClick={() => { void analyze(); }}>{job ? '분석 중…' : '구도·카메라·조명 분석 (AI)'}</button>
         {item.kind === 'image' && <button disabled={busy} onClick={() => { globalThis.dispatchEvent(new CustomEvent(INSERT_SCENE_IMAGE_EVENT, { detail: { file: item.file } })); setMessage('이미지를 장면에 판(컷아웃)으로 넣었어요. Ctrl+Z로 되돌릴 수 있어요.'); }}>장면에 이미지로 넣기</button>}
       </div>
+      {item.kind === 'video' && <label className="manual-slider">컷 찾기 민감도<select aria-label="컷 찾기 민감도" value={cutSensitivity} onChange={(e) => setCutSensitivity(Number(e.target.value))}><option value={0.7}>낮음 (확실한 컷만)</option><option value={1}>보통</option><option value={1.6}>높음 (작은 전환도)</option></select></label>}
+      {job && <div className="ref-job" role="status" aria-live="polite"><span className="ref-spinner" aria-hidden="true" /> {job.phase} · {elapsed}초 경과 <button onClick={() => job.controller.abort()}>취소</button></div>}
       {aiNote && <p className="manual-error">{aiNote}</p>}
       {item.shots.length > 0 && <>
         <ol className="ref-shots">{item.shots.map((shot, i) => <li key={i}>

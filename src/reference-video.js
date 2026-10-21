@@ -65,22 +65,37 @@ export function frameDifference(a, b) {
 	return sum / (a.length * 255);
 }
 
+/** Half the L1 distance of two normalised histograms, 0..1. */
+export function histogramDifference(a, b) {
+	if (!a || !b || a.length !== b.length) return 1;
+	let sum = 0;
+	for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+	return sum / 2;
+}
+
 /**
- * Cut times from per-sample differences. diffs[i] is the change between
- * sample i-1 and i at times[i]. A cut is a spike well above the local level,
- * so a pan or flicker does not split a shot. Returns cut times in seconds.
+ * Cut times from per-sample change scores (0.7 colour histogram + 0.3 pixel
+ * difference). scores[i] is the change between samples i-1 and i at times[i].
+ * A cut is a short spike: above an absolute floor, the biggest within ±2
+ * samples, and well above the local median (±10 samples, skipping the direct
+ * neighbours), so fast dancing or a camera move does not split a shot.
+ * sensitivity: 0.7 (fewer) … 1 (default) … 1.6 (more).
  */
-export function detectCuts(diffs, times, { threshold = 0.12, ratio = 3, minShot = 0.5, window = 8 } = {}) {
+export function detectCuts(scores, times, { sensitivity = 1, minShot = 0.5 } = {}) {
+	const floor = 0.12 / sensitivity, ratio = 1.2 + 0.8 / sensitivity;
 	const cuts = [];
-	for (let i = 1; i < diffs.length; i++) {
-		const lo = Math.max(1, i - window), hi = Math.min(diffs.length, i + window + 1);
+	for (let i = 1; i < scores.length; i++) {
+		const v = scores[i];
+		if (v < floor) continue;
+		let peak = true;
+		for (let j = Math.max(1, i - 2); j <= Math.min(scores.length - 1, i + 2); j++) if (j !== i && scores[j] > v) peak = false;
+		if (!peak) continue;
 		const around = [];
-		for (let j = lo; j < hi; j++) if (j !== i) around.push(diffs[j]);
+		for (let j = Math.max(1, i - 10); j < Math.min(scores.length, i + 11); j++) if (Math.abs(j - i) > 1) around.push(scores[j]);
 		around.sort((x, y) => x - y);
 		const local = around.length ? around[Math.floor(around.length / 2)] : 0;
-		if (diffs[i] < threshold || diffs[i] < local * ratio + 0.02) continue;
-		const last = cuts.length ? cuts[cuts.length - 1] : 0;
-		if (times[i] - last < minShot) continue;
+		if (v < ratio * local) continue;
+		if (times[i] - (cuts.length ? cuts[cuts.length - 1] : 0) < minShot) continue;
 		cuts.push(times[i]);
 	}
 	return cuts;
@@ -168,14 +183,17 @@ export const LIGHTING_LABEL_KO = { studio: "스튜디오", day: "낮", overcast:
 function signature(ctx, w, h) {
 	const data = ctx.getImageData(0, 0, w, h).data;
 	const out = new Uint8Array((data.length / 4) * 3);
+	const hist = new Float32Array(64);
 	let luma = 0, warmth = 0;
 	for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
 		out[j] = data[i]; out[j + 1] = data[i + 1]; out[j + 2] = data[i + 2];
+		hist[(data[i] >> 6) * 16 + (data[i + 1] >> 6) * 4 + (data[i + 2] >> 6)] += 1;
 		luma += (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
 		warmth += (data[i] - data[i + 2]) / 255;
 	}
 	const n = data.length / 4;
-	return { sig: out, luma: luma / n, warmth: warmth / n };
+	for (let k = 0; k < 64; k++) hist[k] /= n;
+	return { sig: out, hist, luma: luma / n, warmth: warmth / n };
 }
 
 async function openVideo(url) {
@@ -194,7 +212,7 @@ async function seek(v, t) {
  * Sample the whole video at a few frames per second on a tiny canvas, find
  * cuts, and describe each shot heuristically. onProgress(0..1).
  */
-export async function analyzeCuts(item, { onProgress = () => {}, signal } = {}) {
+export async function analyzeCuts(item, { onProgress = () => {}, signal, sensitivity = 1 } = {}) {
 	const v = await openVideo(item.url);
 	try {
 		const duration = item.duration || v.duration || 0;
@@ -204,15 +222,46 @@ export async function analyzeCuts(item, { onProgress = () => {}, signal } = {}) 
 		const ctx = canvas.getContext("2d", { willReadFrequently: true });
 		const times = [], diffs = [], stats = [];
 		let prev = null;
-		for (let t = 0; t < duration; t += step) {
-			if (signal?.aborted) throw new Error("취소했어요.");
-			await seek(v, Math.min(t, Math.max(0, duration - 0.04)));
+		const sample = (t) => {
 			ctx.drawImage(v, 0, 0, w, h);
-			const { sig, luma, warmth } = signature(ctx, w, h);
-			times.push(t); diffs.push(prev ? frameDifference(prev, sig) : 0); stats.push({ luma, warmth }); prev = sig;
-			if (times.length % 8 === 0) onProgress(t / duration);
+			const { sig, hist, luma, warmth } = signature(ctx, w, h);
+			times.push(t); diffs.push(prev ? 0.7 * histogramDifference(prev.hist, hist) + 0.3 * frameDifference(prev.sig, sig) : 0); stats.push({ luma, warmth }); prev = { sig, hist };
+			if (times.length % 8 === 0) onProgress(Math.min(1, t / duration));
+		};
+		// Fast path: play muted at 2x and grab presented frames (seeking every
+		// sample is ~3x slower). Falls back to seeking if playback is refused.
+		let played = false;
+		if (typeof v.requestVideoFrameCallback === "function") {
+			try {
+				v.playbackRate = 2;
+				await new Promise((resolve, reject) => {
+					let next = 0;
+					const stall = () => setTimeout(() => reject(new Error("stalled")), 8000);
+					let timer = stall();
+					const onFrame = (_now, meta) => {
+						clearTimeout(timer); timer = stall();
+						if (signal?.aborted) { clearTimeout(timer); v.pause(); reject(new Error("취소했어요.")); return; }
+						const t = meta?.mediaTime ?? v.currentTime;
+						if (t + 1e-3 >= next) { sample(t); next = t + step; }
+						if (v.ended || t >= duration - 0.05) { clearTimeout(timer); resolve(); } else v.requestVideoFrameCallback(onFrame);
+					};
+					v.addEventListener("ended", () => { clearTimeout(timer); resolve(); }, { once: true });
+					v.requestVideoFrameCallback(onFrame);
+					v.play().catch((error) => { clearTimeout(timer); reject(error); });
+				});
+				played = times.length > Math.max(4, (duration / step) * 0.5);
+			} catch (error) { if (signal?.aborted) throw error; }
+			v.pause();
 		}
-		const cuts = detectCuts(diffs, times);
+		if (!played) {
+			times.length = 0; diffs.length = 0; stats.length = 0; prev = null;
+			for (let t = 0; t < duration; t += step) {
+				if (signal?.aborted) throw new Error("취소했어요.");
+				await seek(v, Math.min(t, Math.max(0, duration - 0.04)));
+				sample(t);
+			}
+		}
+		const cuts = detectCuts(diffs, times, { sensitivity });
 		const shots = cutsToRanges(cuts, duration).map((range) => {
 			const idx = times.map((t, i) => (t >= range.start && t < range.end ? i : -1)).filter((i) => i >= 0);
 			const avg = (f) => idx.length ? idx.reduce((sum, i) => sum + f(i), 0) / idx.length : 0;
@@ -250,13 +299,25 @@ async function imageToDataUrl(url, maxSide) {
 export const VISION_HELP_KO = "지금 연결된 모델은 이미지를 볼 수 없어요(텍스트 전용). 무료 로컬 비전 모델을 쓰려면 PowerShell에서 `ollama pull qwen2.5vl:3b` (빠름) 또는 `ollama pull qwen2.5vl:7b` (정확, 느림)을 실행한 뒤, 에이전트 패널 > 모델 연결 > 로컬 모델에서 모델 이름에 qwen2.5vl:3b 를 추가하고 선택하세요.";
 
 /** Ask the agent server's selected model to analyse keyframes. */
-export async function requestVisionAnalysis({ model, images, fetchImpl = globalThis.fetch }) {
-	const response = await fetchImpl("/agent/vision", { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
-		body: JSON.stringify({ model, prompt: ANALYSIS_PROMPT, images }) });
+export const VISION_TIMEOUT_MS = 5 * 60 * 1000;
+export async function requestVisionAnalysis({ model, images, signal, timeoutMs = VISION_TIMEOUT_MS, fetchImpl = globalThis.fetch }) {
+	const timeout = AbortSignal.timeout(timeoutMs);
+	const combined = signal && AbortSignal.any ? AbortSignal.any([signal, timeout]) : timeout;
+	let response;
+	try {
+		response = await fetchImpl("/agent/vision", { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", signal: combined,
+			body: JSON.stringify({ model, prompt: ANALYSIS_PROMPT, images }) });
+	} catch (error) {
+		if (signal?.aborted) throw Object.assign(new Error("분석을 취소했어요."), { cancelled: true });
+		if (timeout.aborted) throw new Error(`분석이 ${Math.round(timeoutMs / 60000)}분 안에 끝나지 않았어요. 컴퓨터가 느리면 샷 수를 줄이거나 잠시 후 다시 시도해 주세요.`);
+		throw new Error(`에이전트 서버에 연결하지 못했어요 (${error?.message || "네트워크 오류"}). CozyClay 실행 창이 켜져 있는지 확인해 주세요.`);
+	}
 	const body = await response.json().catch(() => ({}));
+	if (response.status === 502 && /ECONNREFUSED|fetch failed|connect/i.test(body?.error?.message ?? "")) throw new Error("Ollama가 실행 중이 아니에요. ‘CozyClay 실행’을 다시 누르거나 Ollama 앱을 켜 주세요.");
+	if (response.status === 404 && body?.error?.code === "NO_MODEL") throw new Error("선택한 모델을 찾지 못했어요. PowerShell에서 `ollama pull qwen2.5vl:3b` 를 실행했는지 확인해 주세요.");
 	if (response.status === 422 && body?.error?.code === "TEXT_ONLY") { const e = new Error(VISION_HELP_KO); e.textOnly = true; throw e; }
 	if (response.status === 404 || response.status === 502 && !body?.error) throw new Error("에이전트 서버가 실행 중이 아니에요. CozyClay를 npm run dev 로 실행했는지 확인해 주세요.");
-	if (!response.ok) throw new Error(`분석 요청 실패: ${body?.error?.message ?? response.status}`);
+	if (!response.ok) throw new Error(`분석 요청 실패 (${response.status}): ${body?.error?.message ?? "알 수 없는 오류"}`);
 	const shots = parseAnalysis(body.text);
 	if (!shots?.length) throw new Error("모델이 JSON 형식으로 답하지 않았어요. 다시 시도하거나 더 큰 모델(qwen2.5vl:7b)을 써 보세요.");
 	return shots;
