@@ -20,7 +20,7 @@
 	"src/camera-follow.js": 505,
 	"src/camera-move.js": 289,
 	"src/command-bus.js": 356,
-	"src/controls.jsx": 330,
+	"src/controls.jsx": 364,
 	"src/domains/cast.js": 717,
 	"src/domains/motion.js": 812,
 	"src/domains/objects.js": 907,

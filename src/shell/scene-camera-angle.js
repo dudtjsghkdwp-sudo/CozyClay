@@ -39,7 +39,7 @@ export function normalizeAngle(angle = {}) {
 }
 
 /** Where the camera looks: the subject's chest, scaled with the figure. */
-function subjectPivot(subject) {
+export function subjectPivot(subject) {
 	return { x: subject?.x ?? 0, y: SUBJECT_HEIGHT_M * (subject?.scale ?? 1) * 0.52, z: subject?.z ?? 0 };
 }
 

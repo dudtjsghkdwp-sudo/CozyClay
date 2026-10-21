@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { emitCameraView, leftOrbitShouldStart } from "./camera-view-sync.js";
 
 const MOVE_SPEED = 2.6; // metres per second
 const CRANE_SPEED = 1.3; // Q/E up/down runs at half walk speed — fine
@@ -44,6 +45,8 @@ export function aimAt(position, target) {
  *   right-held + wheel    change the fly speed instead of dollying
  *   middle-drag           pan
  *   Alt + left-drag       orbit the pivot the caller supplies (the selection)
+ *   left-drag (leftOrbit) the same orbit without Alt, once the press travels
+ *                         a few pixels; clicks and gizmo grabs are untouched
  *   wheel                 dolly
  *
  * Fly, pan and orbit request pointer lock for the hold so the system
@@ -53,7 +56,7 @@ export function aimAt(position, target) {
  * `getPivot()` is optional and returns a world point to orbit; without one,
  * Alt-drag orbits a point straight ahead of the lens.
  */
-export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPivot, onFlyStateChange, onCameraChange }) {
+export function FlyControls({ enabled, leftOrbit = false, cameraLocked = false, camRef, look, getPivot, onFlyStateChange, onCameraChange }) {
 	const { gl, invalidate } = useThree();
 	const keys = useRef(new Set());
 	const gesture = useRef(null); // { kind: "fly" | "pan" | "orbit", pointerId, x, y, ... }
@@ -73,6 +76,10 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 		element.style.touchAction = "none";
 		let lockPending = false;
 		let lockAttempts = 0;
+		let pendingLeft = null; // plain left press waiting to become an orbit
+		let suppressClick = false;
+		let wheelTimer = 0; // the wheel has no "end": settle 350 ms after the last notch
+		const changed = (final = false) => { cameraChangeRef.current?.(); emitCameraView(camRef.current, final); };
 
 		const isTyping = () => {
 			const el = document.activeElement;
@@ -168,7 +175,8 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 			element.style.cursor = "";
 			flyStateRef.current?.(false);
 			flushInvalidate();
-			if (active.changed) cameraChangeRef.current?.();
+			if (active.changed) changed(true);
+			if (active.fromLeft) suppressClick = true;
 		};
 
 		const onLostCapture = (e) => {
@@ -193,6 +201,11 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 		const onPointerDown = (e) => {
 			if (cameraLocked) return;
 			if (gesture.current) return;
+			// Plain left: content first. Remember it; it only orbits if it drags.
+			if (leftOrbit && e.button === 0 && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+				pendingLeft = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+				return;
+			}
 			const orbit = e.button === 0 && e.altKey;
 			const kind = e.button === 2 ? "fly" : e.button === 1 ? "pan" : orbit ? "orbit" : null;
 			if (!kind) return;
@@ -223,6 +236,16 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 		};
 
 		const onPointerMove = (e) => {
+			if (!gesture.current && pendingLeft && (e.buttons & 1) && leftOrbitShouldStart(pendingLeft, e.clientX, e.clientY)) {
+				const cam = camRef.current;
+				gesture.current = { kind: "orbit", pointerId: e.pointerId, button: 0, x: e.clientX, y: e.clientY, pivot: cam ? resolvePivot(cam) : null, changed: false, fromLeft: true };
+				pendingLeft = null;
+				if (typeof window !== "undefined") window.__cozyclayCameraGesture = true;
+				element.setPointerCapture(e.pointerId);
+				element.style.cursor = "move";
+				return;
+			}
+			if (!(e.buttons & 1)) pendingLeft = null;
 			const active = gesture.current;
 			if (!active) return;
 			if (!isLocked() && !lockPending && e.pointerType !== "touch" && e.pointerType !== "pen") {
@@ -244,7 +267,7 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 				look.current.pitch = THREE.MathUtils.clamp(look.current.pitch, -PITCH_LIMIT, PITCH_LIMIT);
 				active.changed = active.changed || dx !== 0 || dy !== 0;
 				if (dx !== 0 || dy !== 0) {
-					cameraChangeRef.current?.();
+					changed();
 					// Camera gestures run in demand mode. One explicit
 					// invalidation per changed input is enough; keeping the
 					// entire scene loop on "always" rendered frozen panes too.
@@ -263,7 +286,7 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 				cam.position.y = Math.max(cam.position.y, 0.12);
 				active.changed = active.changed || dx !== 0 || dy !== 0;
 				if (dx !== 0 || dy !== 0) {
-					cameraChangeRef.current?.();
+					changed();
 					scheduleInvalidate();
 				}
 				return;
@@ -284,7 +307,7 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 			look.current.pitch = angles.pitch;
 			active.changed = active.changed || dx !== 0 || dy !== 0;
 			if (dx !== 0 || dy !== 0) {
-				cameraChangeRef.current?.();
+				changed();
 				scheduleInvalidate();
 			}
 		};
@@ -299,9 +322,19 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 				return;
 			}
 			cam.position.addScaledVector(forwardFrom(look.current.yaw, look.current.pitch), -e.deltaY * DOLLY_STEP);
-			cameraChangeRef.current?.();
+			changed();
+			clearTimeout(wheelTimer);
+			wheelTimer = setTimeout(() => emitCameraView(camRef.current, true), 350);
 		};
 
+		const onClickCapture = (e) => {
+			pendingLeft = null;
+			if (!suppressClick) return;
+			suppressClick = false;
+			e.stopPropagation();
+			e.preventDefault();
+		};
+		element.addEventListener("click", onClickCapture, true);
 		// A right-drag is navigation, so the browser menu must not interrupt it.
 		const onContextMenu = (e) => e.preventDefault();
 
@@ -344,11 +377,13 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 			element.removeEventListener("lostpointercapture", onLostCapture);
 			element.removeEventListener("contextmenu", onContextMenu);
 			element.removeEventListener("wheel", onWheel);
+			element.removeEventListener("click", onClickCapture, true);
+			clearTimeout(wheelTimer);
 			document.removeEventListener("pointerlockchange", onPointerLockChange);
 			document.removeEventListener("pointerlockerror", onPointerLockError);
 			window.removeEventListener("blur", endGesture);
 		};
-	}, [enabled, gl, camRef, look]);
+	}, [enabled, leftOrbit, gl, camRef, look]);
 
 	useFrame((_, delta) => {
 		const cam = camRef.current;
@@ -374,7 +409,7 @@ export function FlyControls({ enabled, cameraLocked = false, camRef, look, getPi
 		cam.position.y = Math.max(cam.position.y, 0.12);
 		if (gesture.current) {
 			gesture.current.changed = true;
-			cameraChangeRef.current?.();
+			cameraChangeRef.current?.(); emitCameraView(cam, false);
 		}
 	});
 

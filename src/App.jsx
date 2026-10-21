@@ -28,7 +28,7 @@ import * as THREE from "three";
 import { restorePlaybackBones, snapshotPlaybackBones } from "./motion/rig-snapshot.js";
 import { applyTakeFrame } from "./motion3/playback.js";
 
-import { FlyControls, aimAt, forwardFrom } from "./controls.jsx";
+import { FlyControls, aimAt, forwardFrom } from "./controls.jsx"; import { subjectPivot } from "./shell/scene-camera-angle.js";
 import { createLiveControl, loadLiveWorkspaceId, mintLiveWorkspaceId } from "./live-control.js";
 import { createFirstEditTracker, semanticEditKind } from "./semantic-edit.js";
 
@@ -4896,10 +4896,10 @@ export default function App() {
 							    and the wheel dollies without wrecking the framing. */}
 							<FlyControls
 								enabled={!posing && !playMode && !sculptMode}
-								camRef={ikMode ? poserCamRef : lookThroughShot ? shotCamRef : editorCamRef}
+								leftOrbit={lookThroughShot && !ikMode} camRef={ikMode ? poserCamRef : lookThroughShot ? shotCamRef : editorCamRef}
 								look={ikMode ? poserLook : lookThroughShot ? look : editorLook}
 								getPivot={() => {
-									if (!selectedSceneObject) return null;
+									if (lookThroughShot && !ikMode && activeChar) return subjectPivot(activeChar); if (!selectedSceneObject) return null;
 									const size = objectSize(selectedSceneObject);
 									return { x: selectedSceneObject.x, y: (selectedSceneObject.y ?? 0) + size.height / 2, z: selectedSceneObject.z };
 								}}

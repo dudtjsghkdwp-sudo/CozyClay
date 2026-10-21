@@ -35,3 +35,32 @@ assert.equal(describeAngle({ azimuthDeg: 180, elevationDeg: 70, distance: 8 }), 
 const panel = readFileSync(new URL("../src/shell/SceneAngleControls.jsx", import.meta.url), "utf8");
 assert.ok(panel.includes("action('shot.frame', { shotId: shot.id"));
 console.log("PASS each shot stores and reloads its own camera angle");
+
+// Viewport mouse orbit <-> per-scene sliders.
+import { LEFT_ORBIT_THRESHOLD_PX, cameraViewFraming, emitCameraView, exactFromView, leftOrbitShouldStart, onCameraView } from "../src/camera-view-sync.js";
+import { subjectPivot } from "../src/shell/scene-camera-angle.js";
+assert.equal(leftOrbitShouldStart({ x: 10, y: 10 }, 12, 11), false, "a click wobble is not an orbit");
+assert.equal(leftOrbitShouldStart({ x: 10, y: 10 }, 10 + LEFT_ORBIT_THRESHOLD_PX, 10), true);
+assert.equal(leftOrbitShouldStart(null, 100, 100), false);
+{
+	// a camera 4 m in front of the subject, looking at its chest
+	const pivot = subjectPivot(subject);
+	const exact = angleToExactFraming(subject, { azimuthDeg: 60, elevationDeg: 20, distance: 4, fovDeg: 35 });
+	const d = { x: pivot.x - exact.position.x, y: pivot.y - exact.position.y, z: pivot.z - exact.position.z };
+	// three.js matrixWorld: column 2 is the camera's +Z (backwards)
+	const elements = new Array(16).fill(0); elements[8] = -d.x; elements[9] = -d.y; elements[10] = -d.z;
+	const camera = { position: exact.position, fov: 35, matrixWorld: { elements } };
+	const framing = cameraViewFraming(camera);
+	assert.deepEqual(framingToAngle(subject, framing), normalizeAngle({ azimuthDeg: 60, elevationDeg: 20, distance: 4, fovDeg: 35 }), "the sliders read the dragged view");
+	const saved = exactFromView(framing, pivot, 50);
+	for (const k of ["x", "y", "z"]) assert.ok(Math.abs(saved.lookAt[k] - pivot[k]) < 1e-9, "an un-panned view saves aimed at the subject");
+	const target = new EventTarget(); const seen = [];
+	globalThis.CustomEvent ??= class extends Event { constructor(type, init) { super(type); this.detail = init?.detail; } };
+	const off = onCameraView((detail) => seen.push(detail), target);
+	emitCameraView(camera, true, target); off(); emitCameraView(camera, false, target);
+	assert.equal(seen.length, 1); assert.equal(seen[0].final, true);
+}
+const controls = readFileSync(new URL("../src/controls.jsx", import.meta.url), "utf8");
+assert.ok(controls.includes("leftOrbit && e.button === 0 && !e.altKey"), "plain left orbit is opt-in");
+assert.ok(readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8").includes("leftOrbit={lookThroughShot && !ikMode}"));
+console.log("PASS viewport mouse orbit stays in sync with the per-scene angle");
