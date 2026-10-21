@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { shotNameDisplay } from "../stage-labels-ko.js";
 import { useStudioShell } from "./studio-shell-context.js";
 import { logStore } from "./log-store.js";
 import "./dock.css";
@@ -432,7 +433,7 @@ function ShotCard() {
 			</div>
 			<footer className="dock-shot-foot">
 				<span className="dock-shot-name">
-					{activeShot?.name ?? ko("No shot yet", "샷 없음")}
+					{activeShot?.name ? shotNameDisplay(activeShot.name) : ko("No shot yet", "샷 없음")}
 					{frames && <span className="dock-shot-range"> · {frames}</span>}
 				</span>
 				{lookThroughShot ? (

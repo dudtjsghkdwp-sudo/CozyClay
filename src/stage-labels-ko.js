@@ -1,4 +1,4 @@
-import { ko } from "./locale.js";
+import { isKo, ko } from "./locale.js";
 import { CUSTOM_MOVE } from "./shot.js";
 import { CUTOUT_KIND, MESH_KIND } from "./scene-objects.js";
 
@@ -195,4 +195,28 @@ export function hierarchyIdForIkFocus(focus, rowId = "characterA") {
 			mappedFocus === focus
 		);
 	return `${rowId}.${exact?.[0] ?? "rig"}`;
+}
+
+// Shot names authored in English ("01 FRONT - Push in") read in Korean in the
+// Korean UI. Display only: the stored name never changes, so a project opens
+// identically in either language and renaming keeps working.
+const SHOT_NAME_WORDS_KO = [
+	["rise from below", "아래에서 상승"], ["push in", "푸시 인"], ["push-in", "푸시 인"], ["pull out", "풀 아웃"], ["pull-out", "풀 아웃"],
+	["crane up", "크레인 업"], ["crane down", "크레인 다운"], ["dolly in", "돌리 인"], ["dolly out", "돌리 아웃"], ["zoom in", "줌 인"], ["zoom out", "줌 아웃"],
+	["pan left", "왼쪽 팬"], ["pan right", "오른쪽 팬"], ["tilt up", "틸트 업"], ["tilt down", "틸트 다운"], ["close-up", "클로즈업"], ["close up", "클로즈업"],
+	["wide shot", "와이드 샷"], ["medium shot", "미디엄 샷"], ["eye level", "아이 레벨"], ["over the shoulder", "오버 더 숄더"], ["establishing", "설정 샷"],
+	["front", "정면"], ["back", "후면"], ["rear", "후면"], ["side", "측면"], ["profile", "측면"], ["left", "왼쪽"], ["right", "오른쪽"],
+	["high", "하이"], ["low", "로우"], ["top", "탑뷰"], ["overhead", "오버헤드"], ["arc", "아크"], ["orbit", "오빗"], ["tracking", "트래킹"],
+	["follow", "팔로우"], ["handheld", "핸드헬드"], ["static", "고정"], ["wide", "와이드"], ["closeup", "클로즈업"], ["medium", "미디엄"], ["shot", "샷"],
+];
+const SHOT_NAME_RE = new RegExp(`\\b(${SHOT_NAME_WORDS_KO.map(([en]) => en.replace(/[-/]/g, "\\$&").replace(/ /g, "\\s+")).join("|")})\\b`, "gi");
+const SHOT_NAME_LOOKUP = new Map(SHOT_NAME_WORDS_KO.map(([en, kr]) => [en.replace(/\s+/g, " "), kr]));
+
+export function shotNameKoText(name) {
+	return String(name ?? "").replace(SHOT_NAME_RE, (word) => SHOT_NAME_LOOKUP.get(word.toLowerCase().replace(/\s+/g, " ")) ?? word);
+}
+
+/** A shot's name as the current UI language shows it. */
+export function shotNameDisplay(name) {
+	return isKo ? shotNameKoText(name) : name;
 }

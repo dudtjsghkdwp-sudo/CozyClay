@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import Foldout from "./Foldout.jsx";
 import { ko, isKo } from "../locale.js";
 import { readReferenceImage } from "./ReferenceImageField.jsx";
-import { REFERENCE_ACCEPT, isReferenceMedia } from "../reference-media.js";
+import { REFERENCE_ACCEPT, isReferenceMedia, referenceKind } from "../reference-media.js";
 import { createHttpTransport } from "../workflow/agent-client.js";
 import "./pose-image.css";
 
@@ -74,6 +74,8 @@ export default function PoseImagePanel({ hidden, capturePoseImage }) {
 	const addFiles = async (files) => {
 		const room = USER_REFERENCES_MAX - store.refs.length;
 		const picked = [...files].filter((file) => isReferenceMedia(file)).slice(0, room);
+		if (!picked.length) { if (files.length) setPoseImageState({ error: ko("That file is not an image or video.", "이미지나 영상 파일이 아니에요.") }); return; }
+		setPoseImageState({ error: picked.some((file) => referenceKind(file) === "video") ? ko("Loading video…", "영상 불러오는 중… (한 장면을 추출하고 있어요)") : ko("Loading image…", "이미지 불러오는 중…") });
 		try {
 			const read = await Promise.all(picked.map((file) => readReferenceImage(file)));
 			setPoseImageState({ refs: [...store.refs, ...read].slice(0, USER_REFERENCES_MAX), error: "" });

@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { ko, isKo } from "../locale.js";
 import { downscaleTarget } from "../scene-assets.js";
-import { REFERENCE_ACCEPT, referenceFileToStill } from "../reference-media.js";
+import { REFERENCE_ACCEPT, referenceFileToStill, referenceKind } from "../reference-media.js";
 
 const REFERENCE_IMAGE_MAX_DIMENSION = 1024;
 
@@ -36,6 +36,7 @@ export async function readReferenceImage(source, { maxDimension = REFERENCE_IMAG
 export default function ReferenceImageField({ label, hint, value, alt, onPick, onClear, inputProps = {} }) {
 	const inputRef = useRef(null);
 	const [error, setError] = useState("");
+	const [loading, setLoading] = useState("");
 	return (
 		<div className="reference-slot v2-reference-slot">
 			<div className="reference-slot-head">
@@ -59,7 +60,7 @@ export default function ReferenceImageField({ label, hint, value, alt, onPick, o
 						: <span className="reference-slot-plus" aria-hidden="true">＋</span>}
 				</button>
 				<div className="reference-slot-copy">
-					<p className="inspector-hint">{hint}</p>
+					<p className="inspector-hint">{loading ? <span role="status">{loading}</span> : hint}</p>
 					<button type="button" className="btn ghost small" onClick={() => inputRef.current?.click()}>
 						{value ? ko("Replace", "교체") : ko("Choose image or video", "이미지·영상 선택")}
 					</button>
@@ -79,10 +80,14 @@ export default function ReferenceImageField({ label, hint, value, alt, onPick, o
 					event.target.value = "";
 					if (!file) return;
 					setError("");
+					const video = referenceKind(file) === "video";
+					setLoading(video ? ko("Loading video…", "영상 불러오는 중… (한 장면을 추출하고 있어요)") : ko("Loading image…", "이미지 불러오는 중…"));
 					try {
 						onPick(await readReferenceImage(file));
 					} catch (failure) {
-						setError(isKo ? `이미지를 불러오지 못했어요 — ${failure.message}` : `Could not load that image — ${failure.message}`);
+						setError(isKo ? `${video ? "영상" : "이미지"}을 불러오지 못했어요 — ${failure.message}` : `Could not load that file — ${failure.message}`);
+					} finally {
+						setLoading("");
 					}
 				}}
 			/>

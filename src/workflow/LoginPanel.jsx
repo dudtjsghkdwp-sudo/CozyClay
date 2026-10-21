@@ -1,3 +1,4 @@
+import { ko } from "../locale.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
 import { answerLogin, cancelLogin, fetchLogins, logoutProvider, readLogin, startLogin } from "./login-client.js";
@@ -28,7 +29,7 @@ function PromptForm({ prompt, onSubmit }) {
 		<div className="agent-key-controls">
 			<input id={inputId} className="agent-key-input" type={ask.type === "secret" ? "password" : "text"} autoComplete="off" spellCheck="false"
 				placeholder={ask.placeholder ?? ""} value={value} autoFocus onChange={(event) => setValue(event.target.value)} />
-			<button type="submit" className="agent-key-save" disabled={ask.type === "secret" && !value.trim()}>Continue</button>
+			<button type="submit" className="agent-key-save" disabled={ask.type === "secret" && !value.trim()}>{ko("Continue", "계속")}</button>
 		</div>
 	</form>;
 }
@@ -37,8 +38,8 @@ function FlowLog({ entries }) {
 	return <ul className="agent-login-log">
 		{entries.map((entry, index) => {
 			const event = entry.event;
-			if (event.type === "auth_url") return <li key={index}><a className="agent-primary-button agent-login-open" href={event.url} target="_blank" rel="noopener noreferrer">Open the sign-in page</a>{event.instructions && <span className="agent-key-note">{event.instructions}</span>}</li>;
-			if (event.type === "device_code") return <li key={index}><span className="agent-key-note">Enter this code at </span><a href={event.verificationUri} target="_blank" rel="noopener noreferrer">{event.verificationUri}</a><code className="agent-login-code">{event.userCode}</code></li>;
+			if (event.type === "auth_url") return <li key={index}><a className="agent-primary-button agent-login-open" href={event.url} target="_blank" rel="noopener noreferrer">{ko("Open the sign-in page", "로그인 페이지 열기")}</a>{event.instructions && <span className="agent-key-note">{event.instructions}</span>}</li>;
+			if (event.type === "device_code") return <li key={index}><span className="agent-key-note">{ko("Enter this code at", "이 코드를 입력할 곳:")} </span><a href={event.verificationUri} target="_blank" rel="noopener noreferrer">{event.verificationUri}</a><code className="agent-login-code">{event.userCode}</code></li>;
 			return <li key={index} className="agent-key-note">{event.message}{(event.links ?? []).map((link) => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer"> {link.label || link.url}</a>)}</li>;
 		})}
 	</ul>;
@@ -105,10 +106,10 @@ export function LoginPanel({ onClose, onChatGPT, onChanged }) {
 	};
 
 	const shown = (providers ?? []).filter((entry) => !query.trim() || entry.name.toLowerCase().includes(query.trim().toLowerCase()));
-	return <section className="agent-keys agent-login" aria-label="Connect a model" data-agent-keys="true">
+	return <section className="agent-keys agent-login" aria-label={ko("Connect a model", "모델 연결")} data-agent-keys="true">
 		<div className="agent-keys-head">
-			<h3 className="agent-keys-title">Connect a model</h3>
-			<button type="button" className="agent-icon-button agent-keys-close" aria-label="Close" onClick={async () => { await cancel(); onClose?.(); }}><FiX size={11} aria-hidden="true" /></button>
+			<h3 className="agent-keys-title">{ko("Connect a model", "모델 연결")}</h3>
+			<button type="button" className="agent-icon-button agent-keys-close" aria-label={ko("Close", "닫기")} onClick={async () => { await cancel(); onClose?.(); }}><FiX size={11} aria-hidden="true" /></button>
 		</div>
 		{error && <p className="agent-key-error" role="alert">{error}</p>}
 		{flow ? <div className="agent-login-flow" data-login-flow={flow.done ? (flow.ok ? "connected" : "failed") : "running"}>
@@ -119,9 +120,9 @@ export function LoginPanel({ onClose, onChatGPT, onChanged }) {
 			{flow.done && <p className={flow.ok ? "agent-key-note" : "agent-key-error"} role={flow.ok ? "status" : "alert"}>{flow.ok ? `Connected to ${flow.name}.` : flow.message}</p>}
 			<div className="agent-key-controls"><button type="button" className="agent-ghost-button" onClick={cancel}>{flow.done ? "Back to the list" : "Cancel"}</button></div>
 		</div> : <>
-			<p className="agent-keys-hint">A subscription signs in on its own page. A key or server address you type stays with the local CozyClay service and is never shown again.</p>
-			<input className="agent-key-input" type="search" aria-label="Search providers" placeholder="Search providers" value={query} onChange={(event) => setQuery(event.target.value)} />
-			{providers === null && !error && <p className="agent-keys-note">Loading providers…</p>}
+			<p className="agent-keys-hint">{ko("A subscription signs in on its own page. A key or server address you type stays with the local CozyClay service and is never shown again.", "구독은 자체 페이지에서 로그인해요. 입력한 키나 서버 주소는 로컬 CozyClay 서비스에만 저장되고 다시 표시되지 않아요.")}</p>
+			<input className="agent-key-input" type="search" aria-label={ko("Search providers", "제공자 검색")} placeholder={ko("Search providers", "제공자 검색")} value={query} onChange={(event) => setQuery(event.target.value)} />
+			{providers === null && !error && <p className="agent-keys-note">{ko("Loading providers…", "제공자 불러오는 중…")}</p>}
 			{GROUPS.map(([title, test]) => {
 				const rows = shown.filter(test);
 				return rows.length ? <div key={title} className="agent-login-group"><p className="agent-key-endpoint-label">{title}</p>
@@ -129,7 +130,7 @@ export function LoginPanel({ onClose, onChatGPT, onChanged }) {
 						<div className="agent-key-head"><span className="agent-key-label">{provider.name}</span><span className="agent-key-source">{provider.connected ? (provider.via === "oauth" ? "signed in" : provider.source || "key") : ""}</span></div>
 						<div className="agent-key-controls">
 							{provider.connected && provider.id !== "openai-codex"
-								? <button type="button" className="agent-ghost-button agent-key-remove" onClick={() => logout(provider)}>Log out</button>
+								? <button type="button" className="agent-ghost-button agent-key-remove" onClick={() => logout(provider)}>{ko("Log out", "로그아웃")}</button>
 								: provider.methods.map((method) => <button key={method.type} type="button" className={method.subscription ? "agent-key-save" : "agent-ghost-button"} onClick={() => begin(provider, method)}>{method.label}</button>)}
 						</div>
 					</div>)}

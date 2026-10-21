@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { shotNameDisplay } from "./stage-labels-ko.js";
 import { ko } from "./locale.js";
 import { CHARACTER_MODEL_IDS, PROXY_FIGURE_MODEL } from "./scenes.js";
 import { OBJECT_LIBRARY } from "./scene-objects.js";
@@ -447,7 +448,7 @@ export function FolderGrid({ folder, query, ...props }) {
 	} else if (folder === "cameras") {
 		tiles = shots.filter((shot) => matchesQuery(shot.name ?? shot.id, query)).map((shot) => {
 			const key = `shot:${shot.id}`;
-			const label = shot.name || shot.id;
+			const label = shot.name ? shotNameDisplay(shot.name) : shot.id;
 			return (
 				<ContentTile
 					key={key}

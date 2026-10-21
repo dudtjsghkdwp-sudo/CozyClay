@@ -1,4 +1,5 @@
 import Foldout from "./Foldout.jsx";
+import { shotNameDisplay } from "../stage-labels-ko.js";
 import { ko, isKo } from "../locale.js";
 import { Field } from "../ui.jsx";
 import { VIDEO_MODEL_PRESETS } from "../model-presets.js";
@@ -29,7 +30,7 @@ export default function CameraPanel({ isCameraSelection, shot, moveSequence, cam
 						<h3 className="move-head v2-details-subsection-title">{ko("Follow cam", "팔로우 카메라")}</h3>
 						<p className="camera-editor-pointer">
 							{activeShot
-								? ko(`Editing ${activeShot.name} in the timeline camera bar below.`, `아래 타임라인 카메라 바에서 ${activeShot.name}을 편집합니다.`)
+								? ko(`Editing ${shotNameDisplay(activeShot.name)} in the timeline camera bar below.`, `아래 타임라인 카메라 바에서 ${shotNameDisplay(activeShot.name)}을 편집합니다.`)
 								: ko("Select a Shot block below to edit its camera.", "아래에서 샷 블록을 선택하면 카메라를 편집할 수 있습니다.")}
 						</p>
 

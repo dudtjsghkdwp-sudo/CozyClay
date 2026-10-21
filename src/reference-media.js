@@ -111,32 +111,64 @@ async function decodePicture(file) {
 	}
 }
 
-/** One still frame from a video, by default a little after the start so a
- * black lead-in frame is skipped. */
+const VIDEO_LOAD_TIMEOUT_MS = 15000;
+const VIDEO_SEEK_TIMEOUT_MS = 4000;
+
+/** Resolve on the first of `events`, reject on error, or settle on timeout. */
+function waitFor(video, events, ms, onTimeout) {
+	return new Promise((resolve, reject) => {
+		const done = (fn, value) => { clearTimeout(timer); for (const name of [...events, "error"]) video.removeEventListener(name, handlers[name]); fn(value); };
+		const handlers = {};
+		for (const name of events) { handlers[name] = () => done(resolve, name); video.addEventListener(name, handlers[name]); }
+		handlers.error = () => done(reject, video.error);
+		video.addEventListener("error", handlers.error);
+		const timer = setTimeout(() => (onTimeout === "resolve" ? done(resolve, "timeout") : done(reject, Object.assign(new Error("timeout"), { name: "TimeoutError" }))), ms);
+	});
+}
+
+function videoErrorMessage(file, failure) {
+	const ext = fileExtension(file) || "video";
+	if (failure?.name === "TimeoutError") return `영상을 불러오는 데 너무 오래 걸려요 (.${ext}). 파일이 크거나 이 브라우저가 해당 코덱(예: HEVC/H.265 .mov)을 재생하지 못할 수 있어요. MP4(H.264)나 WebM으로 변환하거나, 영상의 한 장면을 이미지로 저장해 첨부해 주세요.`;
+	return `이 브라우저가 .${ext} 영상을 재생하지 못해요 (코덱 미지원일 수 있어요, 예: HEVC/H.265 .mov·.mkv). MP4(H.264)나 WebM으로 변환하거나, 영상의 한 장면을 이미지로 저장해 첨부해 주세요.`;
+}
+
+/** One still frame from a video, a little after the start so a black lead-in
+ * is skipped; frame 0 when seeking stalls. Never hangs: every wait has a
+ * timeout and every failure carries a Korean reason. */
 async function videoFrameToFile(file, { at = 0.1 } = {}) {
 	const url = URL.createObjectURL(file);
 	const video = document.createElement("video");
 	video.muted = true;
+	video.defaultMuted = true;
 	video.playsInline = true;
+	video.setAttribute("playsinline", "");
 	video.preload = "auto";
+	video.crossOrigin = "anonymous";
+	// Off-screen but attached: some Chromium builds never decode a frame for a detached element.
+	video.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none";
+	document.body?.appendChild(video);
 	try {
-		await new Promise((resolve, reject) => {
-			video.onloadeddata = resolve;
-			video.onerror = () => reject(new Error(`this browser cannot decode .${fileExtension(file) || "video"} — try MP4 (H.264) or WebM`));
+		try {
 			video.src = url;
-		});
+			video.load();
+			await waitFor(video, ["loadeddata"], VIDEO_LOAD_TIMEOUT_MS);
+		} catch (failure) {
+			throw new Error(videoErrorMessage(file, failure));
+		}
+		if (!video.videoWidth || !video.videoHeight) throw new Error(`영상에 화면(비디오 트랙)이 없어요 — 소리만 있는 파일이거나 코덱을 지원하지 않아요 (.${fileExtension(file) || "video"}).`);
 		const duration = Number.isFinite(video.duration) ? video.duration : 0;
-		const target = Math.min(Math.max(0, duration * at), Math.max(0, duration - 0.05));
+		const target = Math.min(Math.max(0, duration * at), 1, Math.max(0, duration - 0.05));
 		if (target > 0) {
-			await new Promise((resolve) => {
-				video.onseeked = resolve;
-				video.currentTime = target;
-			});
+			video.currentTime = target;
+			// A stalled seek falls back to whatever frame is decoded (the first).
+			const result = await waitFor(video, ["seeked"], VIDEO_SEEK_TIMEOUT_MS, "resolve").catch(() => "error");
+			if (result !== "seeked") { try { video.currentTime = 0; await waitFor(video, ["seeked"], VIDEO_SEEK_TIMEOUT_MS, "resolve"); } catch { /* keep the decoded frame */ } }
 		}
 		return await drawToFile(video, video.videoWidth, video.videoHeight, file.name, "image/jpeg");
 	} finally {
 		video.removeAttribute("src");
 		video.load?.();
+		video.remove();
 		URL.revokeObjectURL(url);
 	}
 }

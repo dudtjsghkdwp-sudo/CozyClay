@@ -455,7 +455,17 @@ export function useScenes(appContext) {
 			if (!picked) return { cancelled: true }; // closing the dialog is not a failure
 			const route = openFileRoute(picked);
 			if (route === "image" || route === "video" || route === "mesh") {
-				await appContext.shared.importOpenedFile(picked, route);
+				setProjectStartupOpen(false);
+				appContext.notify(route === "video" ? ko("Loading video…", "영상 불러오는 중… (한 장면을 추출해 장면에 추가해요)") : ko("Importing…", "불러오는 중…"));
+				// Import as its own top-level command once project.open has
+				// finished: a bus.run started inside a running command never settles.
+				const file = picked;
+				setTimeout(() => {
+					Promise.resolve().then(() => appContext.shared.importOpenedFile(file, route)).catch((failure) => {
+						console.error("open import failed", failure);
+						appContext.notify(isKo ? `${file.name}을(를) 불러오지 못했어요 — ${failure?.message || "알 수 없는 오류"}` : `Could not import ${file.name} — ${failure?.message || "unknown error"}`);
+					});
+				}, 0);
 				return { imported: route, fileName: picked.name };
 			}
 			if (route !== "project") return { failed: true, message: unsupportedOpenMessage(picked.name) }; const text = await picked.text();

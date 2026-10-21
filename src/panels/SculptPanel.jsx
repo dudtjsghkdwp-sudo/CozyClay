@@ -3,7 +3,7 @@ import Foldout from "./Foldout.jsx";
 import { ko, isKo } from "../locale.js";
 import { effortOptions } from "../workflow/agent-client.js";
 import "./sculpt.css";
-import { REFERENCE_ACCEPT, isReferenceMedia, referenceFileToStill } from "../reference-media.js";
+import { REFERENCE_ACCEPT, isReferenceMedia, referenceFileToStill, referenceKind } from "../reference-media.js";
 
 // Sculpt mode side panel (#739). Pure view: the run controller owns the run state and the
 // reference; this panel only renders it and reports the operator's intent through callbacks.
@@ -257,6 +257,7 @@ function BlueprintSection({ blueprint, disabled }) {
 export default function SculptPanel({ run, reference, onReference, onStart, onCancel, onPlaceInScene, canStart, startRefusal, sculptName, hidden, modelPicker = null, blueprint = null }) {
 	const fileRef = useRef(null);
 	const [dragging, setDragging] = useState(false);
+	const [loadNote, setLoadNote] = useState("");
 	// The sheet is the clearest picture of what is off, so it starts open.
 	const [showSheet, setShowSheet] = useState(true);
 
@@ -272,7 +273,13 @@ export default function SculptPanel({ run, reference, onReference, onStart, onCa
 
 	const take = (files) => {
 		const file = pickImage(files);
-		if (file) referenceFileToStill(file).then((still) => onReference?.(still), () => {});
+		if (file) loadReference(file);
+		else if (files?.length) setLoadNote(ko("That file is not an image or video.", "이미지나 영상 파일이 아니에요."));
+	};
+	const loadReference = (file) => {
+		setLoadNote(referenceKind(file) === "video" ? ko("Loading video…", "영상 불러오는 중… (한 장면을 추출하고 있어요)") : ko("Loading image…", "이미지 불러오는 중…"));
+		referenceFileToStill(file).then((still) => { setLoadNote(""); onReference?.(still); },
+			(failure) => setLoadNote(isKo ? `불러오지 못했어요 — ${failure.message}` : `Could not load that file — ${failure.message}`));
 	};
 	const openPicker = () => fileRef.current?.click();
 
@@ -283,7 +290,7 @@ export default function SculptPanel({ run, reference, onReference, onStart, onCa
 					const file = pickImage(event.clipboardData?.files);
 					if (!file) return;
 					event.preventDefault();
-					referenceFileToStill(file).then((still) => onReference?.(still), () => {});
+					loadReference(file);
 				}}>
 
 				<div className="sculpt-label"><span>{ko("Reference", "참조 이미지")}</span>{reference?.name && <small title={reference.name}>{reference.name}</small>}</div>
@@ -317,6 +324,7 @@ export default function SculptPanel({ run, reference, onReference, onStart, onCa
 					aria-label={ko("Reference image file", "참조 이미지 파일")}
 					onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ""; take(files); }} />
 
+				{loadNote && <p className="inspector-hint" role="status" data-testid="sculpt-load-note">{loadNote}</p>}
 				{reference && <BlueprintSection blueprint={blueprint} disabled={running} />}
 
 				<ModelPicker picker={modelPicker} locked={running} />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { shotNameDisplay } from "../stage-labels-ko.js";
 import { useStudioShell } from './studio-shell-context.js';
 import { ANGLE_LIMITS, ANGLE_PRESETS, DEFAULT_SCENE_ANGLE, angleToExactFraming, describeAngle, framingToAngle, normalizeAngle, subjectPivot } from './scene-camera-angle.js';
 import { exactFromView, onCameraView } from '../camera-view-sync.js';
@@ -48,7 +49,7 @@ export default function SceneAngleControls({ busy, perform, action, setMessage, 
     const subject = latest.current.character;
     const exact = exactFromView(framing, subjectPivot(subject), Math.round(fovToFocalMm(value.fovDeg * Math.PI / 180) * 10) / 10);
     await action('shot.frame', { shotId: shot.id, subjectIds: [subject.id], framing: { exact } });
-    setMessage(`마우스로 바꾼 구도를 '${shot.name}' 장면에 저장했습니다 — ${describeAngle(value)} (Ctrl+Z로 되돌리기)`);
+    setMessage(`마우스로 바꾼 구도를 '${shotNameDisplay(shot.name)}' 장면에 저장했습니다 — ${describeAngle(value)} (Ctrl+Z로 되돌리기)`);
   }
   async function apply(next = angle, shot = active) {
     if (!shot) throw new Error('먼저 타임라인에서 장면(샷)을 선택해 주세요.');
@@ -61,7 +62,7 @@ export default function SceneAngleControls({ busy, perform, action, setMessage, 
     if (fromMouse) await applyView(shot, view.current, value);
     else {
       await action('shot.frame', { shotId: shot.id, subjectIds: [character.id], framing: { exact: angleToExactFraming(character, value) } });
-      setMessage(`'${shot.name}' 장면에 카메라 각도를 적용했습니다 — ${describeAngle(value)}`);
+      setMessage(`'${shotNameDisplay(shot.name)}' 장면에 카메라 각도를 적용했습니다 — ${describeAngle(value)}`);
     }
     s.setTlFrame(shot.startFrame);
     s.enterShotLook?.();
@@ -73,11 +74,11 @@ export default function SceneAngleControls({ busy, perform, action, setMessage, 
     {!shots.length && <p className="manual-note">타임라인에 샷이 없습니다. 샷을 먼저 만들면 장면마다 각도를 따로 지정할 수 있어요.</p>}
     {shots.length > 0 && <div className="manual-shots" role="listbox" aria-label="장면 선택">
       {shots.map((shot, index) => <button key={shot.id} role="option" aria-selected={active?.id === shot.id} className={active?.id === shot.id ? 'manual-shot is-active' : 'manual-shot'} disabled={busy} onClick={() => selectShot(shot)}>
-        <strong>{index + 1}. {shot.name}</strong><small>{shot.startFrame}–{shot.endFrame}f</small>
+        <strong>{index + 1}. {shotNameDisplay(shot.name)}</strong><small>{shot.startFrame}–{shot.endFrame}f</small>
       </button>)}
     </div>}
     {active && <>
-      <p className="manual-note">선택된 장면: <b>{active.name}</b> · {describeAngle(angle)}{stored ? '' : ' (아직 저장된 각도 없음)'}</p>
+      <p className="manual-note">선택된 장면: <b>{shotNameDisplay(active.name)}</b> · {describeAngle(angle)}{stored ? '' : ' (아직 저장된 각도 없음)'}</p>
       <p className="manual-note">{s.lookThroughShot ? '화면에서 마우스 왼쪽 드래그: 회전 · 휠: 거리 · 휠 버튼 드래그: 이동 — 슬라이더가 함께 움직여요.' : '장면을 선택하면 샷 카메라로 전환되어 마우스로 각도를 바꿀 수 있어요.'}</p>
       <label className="manual-check"><input type="checkbox" checked={autoApply} onChange={e => setAutoApply(e.target.checked)} /> 마우스를 놓으면 이 장면에 자동 저장</label>
       <div className="manual-presets">{ANGLE_PRESETS.map(p => <button key={p.id} disabled={busy} onClick={() => { view.current = null; setAngle(current => normalizeAngle({ ...current, ...p.angle })); }}>{p.label}</button>)}</div>

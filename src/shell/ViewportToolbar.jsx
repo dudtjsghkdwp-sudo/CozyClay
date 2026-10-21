@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { shotNameDisplay } from "../stage-labels-ko.js";
 import { useStudioShell } from "./studio-shell-context.js";
 import ShotPreviewHeader from "./ShotPreviewHeader.jsx";
 import { ko } from "../locale.js";
@@ -595,7 +596,7 @@ export default function ViewportToolbar() {
 				</span>
 			</div>
 
-			<ShotPreviewHeader name={activeShot?.name ?? ko("Shot", "샷")} lens={`${shot.focalMm}mm`} />
+			<ShotPreviewHeader name={activeShot?.name ? shotNameDisplay(activeShot.name) : ko("Shot", "샷")} lens={`${shot.focalMm}mm`} />
 		</div>
 	);
 }

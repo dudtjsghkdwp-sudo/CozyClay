@@ -11,6 +11,7 @@
  */
 import { fileToDataUrl, imageFileFromTransfer } from "./clipboard-image.js";
 import { isReferenceMedia, referenceFileToStill } from "../reference-media.js";
+import { ko } from "../locale.js";
 
 export const ATTACHMENT_MAX_COUNT = 4;
 export const ATTACHMENT_MAX_DIMENSION = 1600;
@@ -19,9 +20,9 @@ export const ATTACHMENT_JPEG_QUALITY = 0.85;
 /** The turn envelope accepts exactly these three, so the composer refuses the
  * rest here rather than letting the sidecar reject a turn the author sent. */
 const ATTACHMENT_TYPES = Object.freeze(["image/png", "image/jpeg", "image/webp"]);
-export const ATTACHMENT_LIMIT_NOTICE = "Up to 4 images per message";
-export const ATTACHMENT_TYPE_NOTICE = "Attach an image or a video file";
-export const ATTACHMENT_FAILED_NOTICE = "That image could not be attached";
+export const ATTACHMENT_LIMIT_NOTICE = ko("Up to 4 images per message", "메시지당 이미지는 최대 4장이에요");
+export const ATTACHMENT_TYPE_NOTICE = ko("Attach an image or a video file", "이미지나 영상 파일을 첨부해 주세요");
+export const ATTACHMENT_FAILED_NOTICE = ko("That file could not be attached", "파일을 첨부하지 못했어요");
 
 const EXTENSION_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
 

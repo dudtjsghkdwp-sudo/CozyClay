@@ -140,9 +140,9 @@ const controls = [
 	["stop control", "agent-stop"],
 	["suggestion chips", "presentation.suggestions"],
 	["paused card", "PausedCard"],
-	["Wait & retry", "Wait &amp; retry"],
+	["Wait & retry", 'ko("Wait & retry"'],
 	["Switch model", "Switch model"],
-	["error Retry", ">Retry<"],
+	["error Retry", '{ko("Retry", "다시 시도")}<'],
 	["step list Retry", "onRetry={() => runTurn(chat.lastPrompt)} />"],
 ];
 for (const [name, needle] of controls) expect(`composer/transcript exposes the ${name}`, panel.includes(needle), needle);
@@ -196,7 +196,7 @@ expect("Clear context and New share one session reset", panel.includes("store.cl
 expect("the panel renders job progress", panel.includes("function JobCard") && panel.includes("agent-job-card") && panel.includes("agent-job-stop"));
 expect("progress is shown only when the runtime reported one", client.includes("export const formatJobProgress") && panel.includes('aria-valuenow={percent}'));
 expect("an unverified candidate needs an explicit acceptance", panel.includes("agent-job-accept") && panel.includes("Apply with warnings") && client.includes("explicitUnverifiedAcceptance: true"));
-expect("an unverified installation keeps its label", panel.includes('<span className="agent-job-badge">Unverified</span>'));
+expect("an unverified installation keeps its label", panel.includes('<span className="agent-job-badge">{ko("Unverified", "미확인")}</span>'));
 expect("receipts and structured failures have their own cards", panel.includes("function ReceiptCard") && panel.includes("function FailureCard") && panel.includes("RECOVERY_COPY"));
 const restoredStore = createAgentChatStore({ transport: {}, newId: (() => { let id = 0; return () => `restored-${++id}`; })() });
 restoredStore.restore([{ kind: "user", text: "hello" }, { kind: "failure", code: "upstream", message: "Provider unavailable." }], "restored-session");
@@ -228,7 +228,7 @@ expect("sending empties the composer's pictures with its draft", /set\(\{[\s\S]{
 expect("the attachment strip is token-driven", /\.agent-attachment\s*\{[^}]*width: var\(--agent-thumb\)/.test(css) && /\.agent-attachments\s*\{[^}]*gap: var\(--agent-space-2\)/.test(css));
 {
 	const attachments = await import("../src/workflow/attachment-image.js");
-	expect("the composer states the limit it enforces", attachments.ATTACHMENT_LIMIT_NOTICE === "Up to 4 images per message" && attachments.ATTACHMENT_MAX_COUNT === 4);
+	expect("the composer states the limit it enforces", ["Up to 4 images per message", "메시지당 이미지는 최대 4장이에요"].includes(attachments.ATTACHMENT_LIMIT_NOTICE) && attachments.ATTACHMENT_MAX_COUNT === 4);
 }
 
 expect("auth refresh is event-driven on return from sign-in", panel.includes('window.addEventListener("focus", onReturn)') && panel.includes('document.addEventListener("visibilitychange", onReturn)') && !/setTimeout/.test(panel));
@@ -643,7 +643,7 @@ expect("the transport can steer a running turn", client.includes("async steer(tu
 expect("the store steers instead of starting a second turn", client.includes("async steer(text, options = {})") && client.includes("if (!state.streaming || !wireTurnId"));
 expect("a refused steer names the code and keeps the draft", client.includes("export const STEER_ERROR_COPY") && client.includes("STEER_UNSUPPORTED")
 	&& client.includes("NO_ACTIVE_TURN") && panel.includes("setSteerNotice(result.message"));
-expect("Send becomes Steer while a steerable turn runs, and Stop stays reachable", panel.includes('className="agent-send agent-steer"') && panel.includes(">Steer</button>")
+expect("Send becomes Steer while a steerable turn runs, and Stop stays reachable", panel.includes('className="agent-send agent-steer"') && panel.includes('{ko("Steer", "방향 지시")}</button>')
 	&& panel.includes('className="agent-send stop agent-stop"'));
 expect("only the Workflow surface offers Steer", panel.includes("presentation.steer &&") && panel.includes("if (streaming) { if (presentation.steer) steerTurn(draft); return; }"));
 expect("a provider key is a way in, not only the ChatGPT sign-in", panel.includes("status?.signedIn || status?.providersConfigured > 0"));
@@ -923,7 +923,7 @@ expect("no timer drives the auth transition", !/set(Interval|Timeout)\([^)]*(sig
 	const { transformWithOxc } = await import("vite");
 	const React = await import("react");
 	const { renderToStaticMarkup } = await import("react-dom/server");
-	const scope = { React, ...(await import("react-icons/fi")), ...(await import("../src/workflow/agent-client.js")) };
+	const scope = { React, ...(await import("react-icons/fi")), ...(await import("../src/workflow/agent-client.js")), ...(await import("../src/locale.js")) };
 	const names = Object.keys(scope).filter((name) => /^[A-Za-z_$][\w$]*$/.test(name) && name !== "default");
 	const cards = parseSync("AgentPanel.jsx", panel).program.body
 		.filter((node) => node.type === "FunctionDeclaration" && ["StatusDot", "JobCard", "ReceiptCard"].includes(node.id.name))
@@ -938,15 +938,15 @@ expect("no timer drives the auth transition", !/set(Interval|Timeout)\([^)]*(sig
 	const receipt = (status) => ({ ok: true, status: "installed", receiptId: "receipt-1", warnings: status === "unverified" ? warnings : [], acceptance: status === "unverified" ? "advisory-policy" : undefined,
 		verification: { status, limitations: [] }, installed: { characterId: "actor-a", durationSeconds: 2 } });
 	const warned = render(ReceiptCard, { item: { receiptId: "receipt-1", receipt: receipt("unverified"), summary: "Installed 2s of motion on actor-a — installed unverified" } });
-	expect("an unverified install reads Installed with warnings", warned.includes("Installed with warnings"), warned);
+	expect("an unverified install reads Installed with warnings", /Installed with warnings|경고와 함께 설치됨/.test(warned), warned);
 	expect("an unverified install lists every warning", warnings.every((warning) => warned.includes(warning.message)), warned);
 	// The pane has no direct Undo path into the Studio editor, so it names the
 	// two that exist instead of drawing a button.
-	expect("an unverified install says how to undo it", warned.includes("Undo with Cmd+Z or ask the agent") && !warned.includes("<button"), warned);
+	expect("an unverified install says how to undo it", /Undo with Cmd\+Z or ask the agent|되돌리거나 에이전트에게/.test(warned) && !warned.includes("<button"), warned);
 	const clean = render(ReceiptCard, { item: { receiptId: "receipt-2", receipt: receipt("verified"), summary: "Installed 2s of motion on actor-a — verified over 48 frames" } });
 	expect("a verified install carries no warning copy", !clean.includes("Installed with warnings") && !clean.includes("Undo with Cmd+Z"), clean);
 	const job = (status) => render(JobCard, { job: { jobId: "job-1", state: "installed", verification: { status, limitations: [] }, acceptance: null }, onStop() {}, onAccept() {} });
-	expect("an unverified installed job reads Installed with warnings", job("unverified").includes("Installed with warnings"), job("unverified"));
+	expect("an unverified installed job reads Installed with warnings", /Installed with warnings|경고와 함께 설치됨/.test(job("unverified")), job("unverified"));
 	expect("a verified installed job reads Installed", job("verified").includes(">Installed<") && !job("verified").includes("with warnings"), job("verified"));
 }
 
@@ -1101,7 +1101,7 @@ expect("no timer drives the auth transition", !/set(Interval|Timeout)\([^)]*(sig
 	expect("the server's own refusal is not \"offline\"", !module_.agentServerUnavailable(await reason(failing(new Response("{}", { status: 500 })))) && !module_.agentServerUnavailable({ status: 401 }));
 	expect("the panel probes into an offline state and retries it", panel.includes('setAuthState("offline")') && /\}, \[applyModelList, probe, sessionState, transport\]\);/.test(panel) && panel.includes("<OfflineCard probing={probing} onRetry={retryServer} />"));
 	expect("offline hides the sign-in card and the login list", !/authState === "offline"[^\n]*agent-signin/.test(panel) && panel.includes('keysOpen && authState !== "offline" && <LoginPanel'));
-	expect("a failed ChatGPT sign-in shows its reason under the button", /agent-signin" onClick=\{signIn\}>Sign in with ChatGPT<\/button>\n\t+\{signInError && <p className="agent-key-error agent-signin-error" role="alert">/.test(panel));
+	expect("a failed ChatGPT sign-in shows its reason under the button", /agent-signin" onClick=\{signIn\}>\{ko\("Sign in with ChatGPT", "[^"]*"\)\}<\/button>\n\t+\{signInError && <p className="agent-key-error agent-signin-error" role="alert">/.test(panel));
 	expect("the offline card is token-driven", /\.agent-offline-icon \{[^}]*color: var\(--agent-text-muted\)/.test(css));
 	const { parseSync } = await import("rolldown/experimental");
 	const { transformWithOxc } = await import("vite");

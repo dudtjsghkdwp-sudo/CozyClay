@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { shotNameDisplay } from "../stage-labels-ko.js";
 import { frameFromClientX, groupKeyRuns, KEY_RUN_MIN, rangePinBandGeometry, shotBlockGeometry } from "./timeline-coordinates.js";
 import { createPlaybackClock } from "./playback-clock.js";
 
@@ -827,10 +828,10 @@ function CameraBlockEditor({
 	const numberValue = (event) => Number(event.currentTarget.value);
 	const metric = (value, places = 1) => Number(value).toFixed(places);
 	return (
-		<section className="tl-camera-editor" aria-label={ko(`Camera controls for ${shot.name}`, `${shot.name} 카메라 컨트롤`)}>
+		<section className="tl-camera-editor" aria-label={ko(`Camera controls for ${shotNameDisplay(shot.name)}`, `${shotNameDisplay(shot.name)} 카메라 컨트롤`)}>
 			<strong className="tl-camera-editor-title">
 				<span className="tl-subject-kind">{ko("CAMERA", "카메라")}</span>
-				{shot.name}
+				{shotNameDisplay(shot.name)}
 			</strong>
 			{blocked ? (
 				<span className="tl-camera-blocked">
@@ -1939,7 +1940,7 @@ export default function Timeline({
 												className={"tl-shot-block" + (index === cameraBlockIdx ? " selected" : "") + (index === activeShotIdx ? " active" : "") + (movingShotId === shot.id ? " moving" : "") + (!railOff && railRange && railLengthByShot.has(shot.id) ? " has-dolly" : "")}
 												data-shot-kind={shot.kind === "still" ? "still" : undefined}
 												style={{ "--tl-f-start": geometry.startPct, "--tl-f-end": geometry.endPct }}
-												title={isKo ? `${shot.name} · ${shot.startFrame}–${lastFrame}프레임 · 드래그해 순서 이동, 양끝으로 컷 조절, 아래 빈 줄을 클릭해 카메라 키 추가` : `${shot.name} · frames ${shot.startFrame}–${lastFrame} · drag to reorder, trim cuts at either edge, click the empty lower strip to add a camera key`}
+												title={isKo ? `${shotNameDisplay(shot.name)} · ${shot.startFrame}–${lastFrame}프레임 · 드래그해 순서 이동, 양끝으로 컷 조절, 아래 빈 줄을 클릭해 카메라 키 추가` : `${shotNameDisplay(shot.name)} · frames ${shot.startFrame}–${lastFrame} · drag to reorder, trim cuts at either edge, click the empty lower strip to add a camera key`}
 												onPointerDown={(e) => beginShotMove(e, shot, index)}
 												onPointerMove={moveShot}
 												onPointerUp={endShotMove}
@@ -1950,7 +1951,7 @@ export default function Timeline({
 												<button
 														type="button"
 														className="tl-shot-edge start"
-														aria-label={ko(`Resize start of ${shot.name}`, `${shot.name} 시작점 조절`)}
+														aria-label={ko(`Resize start of ${shotNameDisplay(shot.name)}`, `${shotNameDisplay(shot.name)} 시작점 조절`)}
 														onPointerDown={(e) => beginShotBoundaryDrag(e, index, "start")}
 														onPointerMove={moveShotBoundary}
 														onPointerUp={endShotBoundaryDrag}
@@ -1961,7 +1962,7 @@ export default function Timeline({
 												<button
 													type="button"
 													className="tl-shot-edge end"
-													aria-label={ko(`Resize end of ${shot.name}`, `${shot.name} 끝 길이 조절`)}
+													aria-label={ko(`Resize end of ${shotNameDisplay(shot.name)}`, `${shotNameDisplay(shot.name)} 끝 길이 조절`)}
 													onPointerDown={(e) => beginShotBoundaryDrag(e, index, "end")}
 													onPointerMove={moveShotBoundary}
 													onPointerUp={endShotBoundaryDrag}
@@ -1983,7 +1984,7 @@ export default function Timeline({
 													/>
 												) : (
 													<span className="tl-shot-label">
-														<b>{shot.name}</b>
+														<b>{shotNameDisplay(shot.name)}</b>
 														<small>{shot.startFrame}–{lastFrame} · {durationS.toFixed(1)}{ko("s", "초")}</small>
 														{shot.kind === "still" && shot.caption && <small className="tl-shot-caption" title={shot.caption}>{shot.caption}</small>}
 													</span>
@@ -2064,8 +2065,8 @@ export default function Timeline({
 													type="button"
 													className="tl-shot-key-surface"
 													aria-label={shot.camera?.mode === "rail" && shot.camera?.craneHeight
-														? ko(`Add crane point in ${shot.name}`, `${shot.name}에 크레인 점 추가`)
-														: ko(`Add camera key in ${shot.name}`, `${shot.name}에 카메라 키 추가`)}
+														? ko(`Add crane point in ${shotNameDisplay(shot.name)}`, `${shotNameDisplay(shot.name)}에 크레인 점 추가`)
+														: ko(`Add camera key in ${shotNameDisplay(shot.name)}`, `${shotNameDisplay(shot.name)}에 카메라 키 추가`)}
 													title={shot.camera?.mode === "rail" && shot.camera?.craneHeight
 														? ko("Click the crane graph to add a point; click a point and drag it to change height", "크레인 그래프를 클릭해 점 추가 · 점을 눌러 끌어 높이 조절")
 														: ko("Click at a frame to store the current camera framing", "프레임 위치를 클릭해 현재 카메라 프레이밍을 저장합니다")}

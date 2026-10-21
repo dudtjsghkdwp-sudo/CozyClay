@@ -1,4 +1,5 @@
 import { Fragment, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { referenceKind } from "../reference-media.js";
 import { FiAlertTriangle, FiArrowUp, FiCheck, FiChevronRight, FiClock, FiDownload, FiImage, FiMoreHorizontal, FiPaperclip, FiPlus, FiPower, FiRotateCw, FiX } from "react-icons/fi";
 import { ATTACHMENT_FAILED_NOTICE, ATTACHMENT_LIMIT_NOTICE, ATTACHMENT_TYPE_NOTICE, attachmentFilesFromTransfer, attachmentFromFile, transferCarriesFiles } from "./attachment-image.js";
 import { isImeComposing } from "../ime.js";
@@ -73,11 +74,11 @@ function ImageResultCard({ image, onUse, onUndo, onRegenerate, onOpen }) {
 			<img src={image.dataUrl} width={image.width} height={image.height} alt={image.prompt || "Generated image"} onClick={() => onOpen(image)} />
 		</figure>
 		{image.placed
-			? <div className="agent-placed"><StatusDot tone="ok" />Placed<button type="button" className="agent-image-undo" disabled={applying} onClick={() => onUndo(image)}>{applying ? "Removing…" : "Undo"}</button></div>
+			? <div className="agent-placed"><StatusDot tone="ok" />{ko("Placed", "배치됨")}<button type="button" className="agent-image-undo" disabled={applying} onClick={() => onUndo(image)}>{applying ? "Removing…" : "Undo"}</button></div>
 			: <div className="agent-image-actions">
 				<button type="button" className="primary agent-image-use" disabled={applying} onClick={() => onUse(image)}><FiImage size={11} /> {applying ? "Applying…" : "Use in scene"}</button>
-				<a className="agent-image-download" role="button" href={image.dataUrl} download={`${image.imageId || "agent-image"}.png`}><FiDownload size={11} /> Download</a>
-				<button type="button" className="agent-image-regenerate" onClick={() => onRegenerate(image)}><FiRotateCw size={11} /> Regenerate</button>
+				<a className="agent-image-download" role="button" href={image.dataUrl} download={`${image.imageId || "agent-image"}.png`}><FiDownload size={11} /> {ko("Download", "다운로드")}</a>
+				<button type="button" className="agent-image-regenerate" onClick={() => onRegenerate(image)}><FiRotateCw size={11} /> {ko("Regenerate", "다시 생성")}</button>
 			</div>}
 		{/* The card states what the editor actually did: an unacknowledged or
 		    refused action is never drawn as a placement. */}
@@ -112,8 +113,8 @@ function PausedCard({ resetAt, onRetry, onSwitchModel }) {
 		</div>
 		<p style={{ margin: 0 }}>{ERROR_COPY.rate_limit}</p>
 		<div className="agent-paused-actions">
-			<button type="button" className="agent-paused-wait" onClick={onRetry}>Wait &amp; retry</button>
-			<button type="button" className="agent-paused-switch" onClick={onSwitchModel}>Switch model</button>
+			<button type="button" className="agent-paused-wait" onClick={onRetry}>{ko("Wait & retry", "기다렸다 다시 시도")}</button>
+			<button type="button" className="agent-paused-switch" onClick={onSwitchModel}>{ko("Switch model", "모델 변경")}</button>
 		</div>
 	</div>;
 }
@@ -146,23 +147,23 @@ function JobCard({ job, onStop, onAccept }) {
 		<div className="agent-job-head">
 			<StatusDot tone={jobStateTone(job.state)} title={job.state} />
 			<span className="agent-job-label">{label}</span>
-			{unverified && <span className="agent-job-badge">Unverified</span>}
+			{unverified && <span className="agent-job-badge">{ko("Unverified", "미확인")}</span>}
 			{percent !== null && <span className="agent-job-progress">{formatJobProgress(job.progress)}</span>}
 		</div>
 		{phase && <p className="agent-job-phase">{phase}</p>}
 		{/* An acknowledged Stop states what happened to the scene; the state label
 		    alone does not. Uncertainty is reported as uncertainty, never as safety. */}
-		{job.outcome?.status === "not_applied" && <p className="agent-job-outcome">Not applied — scene unchanged.</p>}
-		{job.outcome?.status === "unknown" && <p className="agent-job-outcome">Stopped, but the result is unknown — reconcile before editing this target.</p>}
-		{percent !== null && <div className="agent-job-bar" role="progressbar" aria-label="Generation progress" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+		{job.outcome?.status === "not_applied" && <p className="agent-job-outcome">{ko("Not applied — scene unchanged.", "적용 안 됨 — 장면은 그대로예요.")}</p>}
+		{job.outcome?.status === "unknown" && <p className="agent-job-outcome">{ko("Stopped, but the result is unknown — reconcile before editing this target.", "중지했지만 결과를 알 수 없어요 — 이 대상을 편집하기 전에 확인해 주세요.")}</p>}
+		{percent !== null && <div className="agent-job-bar" role="progressbar" aria-label={ko("Generation progress", "생성 진행 상황")} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
 			<span className="agent-job-bar-fill" style={{ transform: `scaleX(${job.progress})` }} />
 		</div>}
 		{limitations.length > 0 && <ul className="agent-job-limits">{limitations.map((limit) => <li key={limit}>{limit}</li>)}</ul>}
 		<div className="agent-job-actions">
-			{running && job.state !== "review_required" && <button type="button" className="agent-ghost-button agent-job-stop" onClick={() => onStop(job)}>Stop</button>}
-			{job.acceptance?.status === "required" && <button type="button" className="agent-ghost-button agent-job-accept" onClick={() => onAccept(job)}><FiAlertTriangle size={11} /> Apply with warnings</button>}
-			{job.acceptance?.status === "accepting" && <span className="agent-job-note">Applying…</span>}
-			{job.acceptance?.status === "accepted" && <span className="agent-job-note"><FiCheck size={11} /> Applied at your request</span>}
+			{running && job.state !== "review_required" && <button type="button" className="agent-ghost-button agent-job-stop" onClick={() => onStop(job)}>{ko("Stop", "중지")}</button>}
+			{job.acceptance?.status === "required" && <button type="button" className="agent-ghost-button agent-job-accept" onClick={() => onAccept(job)}><FiAlertTriangle size={11} /> {ko("Apply with warnings", "경고와 함께 적용")}</button>}
+			{job.acceptance?.status === "accepting" && <span className="agent-job-note">{ko("Applying…", "적용 중…")}</span>}
+			{job.acceptance?.status === "accepted" && <span className="agent-job-note"><FiCheck size={11} /> {ko("Applied at your request", "요청대로 적용됨")}</span>}
 			{job.acceptance?.error && <span className="agent-job-note alert" role="alert">{job.acceptance.error}</span>}
 		</div>
 	</div>;
@@ -177,7 +178,7 @@ function ReceiptCard({ item }) {
 	return <div className="agent-card agent-receipt-card" data-receipt-id={item.receiptId} data-receipt-status={receipt.status}>
 		<div className="agent-receipt-head">
 			<StatusDot tone={unverified ? "warn" : "ok"} title={receipt.status} />
-			{installedWithWarnings && <span className="agent-job-label">Installed with warnings</span>}
+			{installedWithWarnings && <span className="agent-job-label">{ko("Installed with warnings", "경고와 함께 설치됨")}</span>}
 			<span className="agent-receipt-summary">{summary}</span>
 		</div>
 		{(warnings.length > 0 || limitations.length > 0) && <ul className="agent-receipt-notes">
@@ -186,7 +187,7 @@ function ReceiptCard({ item }) {
 		</ul>}
 		{/* The pane has no direct Undo into the Studio editor; it names the two
 		    paths that do exist rather than drawing a button it cannot honour. */}
-		{installedWithWarnings && <p className="agent-job-note">Undo with Cmd+Z or ask the agent.</p>}
+		{installedWithWarnings && <p className="agent-job-note">{ko("Undo with Cmd+Z or ask the agent.", "Cmd/Ctrl+Z로 되돌리거나 에이전트에게 요청하세요.")}</p>}
 	</div>;
 }
 
@@ -246,7 +247,7 @@ function FailureCard({ failure, onRetry, onFixKey }) {
 		<div className="agent-failure-head"><FiAlertTriangle size={12} aria-hidden="true" /><span className="agent-failure-code">{failure.code}</span></div>
 		<p className="agent-failure-message">{failure.message || "The command did not complete."}</p>
 		<p className="agent-failure-recovery">{RECOVERY_COPY[failure.recovery?.action] || RECOVERY_COPY.none}{failure.preserved?.authoredState === "unchanged" ? " Nothing in the scene changed." : failure.preserved?.authoredState === "unknown" ? " Whether the scene changed is unknown." : ""}</p>
-		{failure.recovery?.retryAllowed && <div className="agent-error-actions">{failure.recovery.action === "fix_key" && onFixKey && <button type="button" className="agent-ghost-button agent-error-keys" onClick={onFixKey}>Log in again</button>}<button type="button" className="agent-ghost-button agent-error-retry" onClick={onRetry}>Retry</button></div>}
+		{failure.recovery?.retryAllowed && <div className="agent-error-actions">{failure.recovery.action === "fix_key" && onFixKey && <button type="button" className="agent-ghost-button agent-error-keys" onClick={onFixKey}>{ko("Log in again", "다시 로그인")}</button>}<button type="button" className="agent-ghost-button agent-error-retry" onClick={onRetry}>{ko("Retry", "다시 시도")}</button></div>}
 	</div>;
 }
 
@@ -602,12 +603,13 @@ export default function AgentPanel({
 	// focus on do not hand the picture to the stage.
 	const attachFiles = useCallback(async (files) => {
 		const prepared = [];
-		let failed = 0;
+		let failed = 0, reason = "";
+		if (files.some((file) => referenceKind(file) === "video")) setAttachNotice(ko("Loading video…", "영상 불러오는 중… (한 장면을 추출하고 있어요)"));
 		for (const file of files) {
-			try { prepared.push(await attachmentFromFile(file)); } catch { failed += 1; }
+			try { prepared.push(await attachmentFromFile(file)); } catch (failure) { failed += 1; reason = failure?.message || ""; }
 		}
 		const rejected = prepared.length ? store.addAttachments(prepared).rejected : 0;
-		setAttachNotice(rejected ? ATTACHMENT_LIMIT_NOTICE : failed ? ATTACHMENT_FAILED_NOTICE : null);
+		setAttachNotice(rejected ? ATTACHMENT_LIMIT_NOTICE : failed ? (reason ? `${ATTACHMENT_FAILED_NOTICE} — ${reason}` : ATTACHMENT_FAILED_NOTICE) : null);
 	}, [store]);
 	const takeTransfer = useCallback((transfer) => {
 		const { images, unsupported } = attachmentFilesFromTransfer(transfer);
@@ -784,10 +786,10 @@ export default function AgentPanel({
 	}, [composerDisabled, hidden]);
 
 	if (collapsed && !embedded) {
-		return <aside className="agent-panel collapsed" data-agent-state={panelState} data-agent-collapsed="true" aria-label="Agent panel, collapsed">
-			<button type="button" className="agent-rail-toggle" onClick={() => setCollapsed(false)} aria-label="Expand agent panel" title="Expand agent panel (Cmd/Ctrl+B)"><FiChevronRight size={13} style={{ transform: "rotate(180deg)" }} /></button>
+		return <aside className="agent-panel collapsed" data-agent-state={panelState} data-agent-collapsed="true" aria-label={ko("Agent panel, collapsed", "에이전트 패널(접힘)")}>
+			<button type="button" className="agent-rail-toggle" onClick={() => setCollapsed(false)} aria-label={ko("Expand agent panel", "에이전트 패널 펼치기")} title={ko("Expand agent panel (Cmd/Ctrl+B)", "에이전트 패널 펼치기 (Cmd/Ctrl+B)")}><FiChevronRight size={13} style={{ transform: "rotate(180deg)" }} /></button>
 			<StatusDot tone={statusTone} title={panelState} />
-			<span className="agent-rail-label">Agent</span>
+			<span className="agent-rail-label">{ko("Agent", "에이전트")}</span>
 		</aside>;
 	}
 
@@ -799,11 +801,11 @@ export default function AgentPanel({
 		data-agent-width={embedded ? undefined : width}
 		data-agent-overlay={overlay && !embedded ? "true" : "false"}
 		data-agent-embedded={embedded ? "true" : "false"}
-		aria-label="Agent"
+		aria-label={ko("Agent", "에이전트")}
 	>
 		{!embedded && <div
 			role="separator"
-			aria-label="Resize agent panel"
+			aria-label={ko("Resize agent panel", "에이전트 패널 크기 조절")}
 			aria-orientation="vertical"
 			aria-valuenow={width}
 			aria-valuemin={AGENT_PANEL_WIDTH_MIN}
@@ -821,18 +823,18 @@ export default function AgentPanel({
 			<StatusDot tone={statusTone} title={panelState} />
 			<h2 className="agent-title" data-previs-mode={titleMode ? previsMode : undefined}>{titleMode ? `Agent · ${titleMode}` : "Agent"}</h2>
 			<span className="agent-header-spacer" />
-			<button type="button" className="agent-icon-button agent-new" aria-label="New conversation" title="New conversation" onClick={newSession}><FiPlus size={14} aria-hidden="true" /></button>
+			<button type="button" className="agent-icon-button agent-new" aria-label={ko("New conversation", "새 대화")} title={ko("New conversation", "새 대화")} onClick={newSession}><FiPlus size={14} aria-hidden="true" /></button>
 			{presentation.history && <span className="agent-history-wrap">
-				<button type="button" className="agent-icon-button agent-history" aria-label="History" title="History" aria-haspopup="listbox" aria-expanded={surface === "studio" ? historyOpen : undefined} onClick={surface === "studio" ? openHistory : undefined} disabled={surface !== "studio"}><FiClock size={13} aria-hidden="true" /></button>
-				{surface === "studio" && historyOpen && <div className="agent-history-popover" role="listbox" aria-label="Agent history">
+				<button type="button" className="agent-icon-button agent-history" aria-label={ko("History", "기록")} title={ko("History", "기록")} aria-haspopup="listbox" aria-expanded={surface === "studio" ? historyOpen : undefined} onClick={surface === "studio" ? openHistory : undefined} disabled={surface !== "studio"}><FiClock size={13} aria-hidden="true" /></button>
+				{surface === "studio" && historyOpen && <div className="agent-history-popover" role="listbox" aria-label={ko("Agent history", "에이전트 기록")}>
 					{historySessions.length ? historySessions.map((entry) => <button type="button" role="option" className="agent-history-item" key={entry.sessionId} onClick={() => restoreHistorySession(entry.sessionId)}>
 						<span className="agent-history-time">{relativeTime(entry.updatedAt)}</span>
 						<span className="agent-history-text">{entry.firstText || "Untitled conversation"}</span>
-					</button>) : <span className="agent-history-empty">No previous conversations</span>}
+					</button>) : <span className="agent-history-empty">{ko("No previous conversations", "이전 대화 없음")}</span>}
 				</div>}
 			</span>}
 			<span className="agent-overflow">
-				<button type="button" className="agent-icon-button agent-overflow-toggle" aria-haspopup="menu" aria-expanded={menuOpen} aria-label="More agent actions" onClick={() => setMenuOpen((value) => !value)}><FiMoreHorizontal size={13} /></button>
+				<button type="button" className="agent-icon-button agent-overflow-toggle" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={ko("More agent actions", "에이전트 작업 더 보기")} onClick={() => setMenuOpen((value) => !value)}><FiMoreHorizontal size={13} /></button>
 				{menuOpen && <div className="agent-menu" role="menu">
 					{/* Who the session is lives with the actions that change it, not
 					    as a standing strip over the conversation. */}
@@ -841,13 +843,13 @@ export default function AgentPanel({
 						<span className="agent-plan-badge">{quota?.plan || account.plan || "Free"}</span>
 						{resetLabel && <span className="agent-account-reset">resets in {resetLabel}</span>}
 					</div>}
-					<button type="button" role="menuitem" onClick={clearContext}>Clear context</button>
+					<button type="button" role="menuitem" onClick={clearContext}>{ko("Clear context", "컨텍스트 지우기")}</button>
 					<button type="button" role="menuitem" className="agent-menu-keys" aria-expanded={keysOpen} onClick={toggleProviderKeys}
-						disabled={authState === "offline"} title={authState === "offline" ? ko("The agent server is not running", "에이전트 서버가 실행 중이 아니에요") : undefined}>Connect a model…</button>
-					{account?.signedIn && <button type="button" role="menuitem" onClick={signOut}>Sign out</button>}
+						disabled={authState === "offline"} title={authState === "offline" ? ko("The agent server is not running", "에이전트 서버가 실행 중이 아니에요") : undefined}>{ko("Connect a model…", "모델 연결…")}</button>
+					{account?.signedIn && <button type="button" role="menuitem" onClick={signOut}>{ko("Sign out", "로그아웃")}</button>}
 				</div>}
 			</span>
-			{!embedded && <button type="button" className="agent-icon-button agent-collapse" onClick={() => setCollapsed(true)} aria-label="Collapse agent panel" title="Collapse agent panel (Cmd/Ctrl+B)"><FiChevronRight size={13} /></button>}
+			{!embedded && <button type="button" className="agent-icon-button agent-collapse" onClick={() => setCollapsed(true)} aria-label={ko("Collapse agent panel", "에이전트 패널 접기")} title={ko("Collapse agent panel (Cmd/Ctrl+B)", "에이전트 패널 접기 (Cmd/Ctrl+B)")}><FiChevronRight size={13} /></button>}
 		</header>
 
 		{restoreNotice && <div className="agent-toast" role="status">{restoreNotice}</div>}
@@ -857,28 +859,28 @@ export default function AgentPanel({
 		    conversation and the credentials it runs on are managed. */}
 		{keysOpen && authState !== "offline" && <LoginPanel onClose={() => setKeysOpen(false)} onChatGPT={signIn} onChanged={refreshProviderState} />}
 
-		<div className="agent-transcript" ref={transcriptRef} aria-live="polite" aria-label="Conversation" data-agent-transcript="true">
+		<div className="agent-transcript" ref={transcriptRef} aria-live="polite" aria-label={ko("Conversation", "대화")} data-agent-transcript="true">
 			{authState === "signed-out" && <div className="agent-state-card" data-agent-card="signed-out">
-				<h3>Connect a model</h3>
-				<p>Sign in with ChatGPT, or log in to another provider with a subscription, an API key, or your own proxy server. Sign-in happens in your browser — no token is ever stored in this page.</p>
-				<button type="button" className="agent-primary-button agent-signin" onClick={signIn}>Sign in with ChatGPT</button>
+				<h3>{ko("Connect a model", "모델 연결")}</h3>
+				<p>{ko("Sign in with ChatGPT, or log in to another provider with a subscription, an API key, or your own proxy server. Sign-in happens in your browser — no token is ever stored in this page.", "ChatGPT로 로그인하거나, 구독·API 키·직접 운영하는 프록시 서버(로컬 모델 포함)로 다른 제공자에 로그인하세요. 로그인은 브라우저에서 진행되며 이 페이지에는 토큰이 저장되지 않아요.")}</p>
+				<button type="button" className="agent-primary-button agent-signin" onClick={signIn}>{ko("Sign in with ChatGPT", "ChatGPT로 로그인")}</button>
 				{signInError && <p className="agent-key-error agent-signin-error" role="alert">{signInError}</p>}
-				<button type="button" className="agent-ghost-button agent-use-key" onClick={openProviderKeys}>Log in with another provider</button>
+				<button type="button" className="agent-ghost-button agent-use-key" onClick={openProviderKeys}>{ko("Log in with another provider", "다른 제공자로 로그인")}</button>
 			</div>}
 
 			{authState === "offline" && <OfflineCard probing={probing} onRetry={retryServer} />}
 
 			{authState === "signing-in" && <div className="agent-state-card" data-agent-card="signing-in">
 				<span className="agent-spinner" aria-hidden="true" />
-				<h3>Waiting for your browser…</h3>
-				<p>Finish the ChatGPT sign-in in the browser page that just opened. This panel picks up the session when you come back.</p>
-				{account?.authorizeUrl && <a className="agent-ghost-button agent-signin-link" href={account.authorizeUrl} target="_blank" rel="noopener noreferrer">Open the sign-in page again</a>}
+				<h3>{ko("Waiting for your browser…", "브라우저를 기다리는 중…")}</h3>
+				<p>{ko("Finish the ChatGPT sign-in in the browser page that just opened. This panel picks up the session when you come back.", "방금 열린 브라우저 페이지에서 ChatGPT 로그인을 마치세요. 돌아오면 이 패널이 세션을 이어받아요.")}</p>
+				{account?.authorizeUrl && <a className="agent-ghost-button agent-signin-link" href={account.authorizeUrl} target="_blank" rel="noopener noreferrer">{ko("Open the sign-in page again", "로그인 페이지 다시 열기")}</a>}
 			</div>}
 
 			{authState === "no-entitlement" && <div className="agent-state-card" data-agent-card="no-entitlement">
-				<h3>Image generation is not on this plan</h3>
+				<h3>{ko("Image generation is not on this plan", "이 요금제에는 이미지 생성이 없어요")}</h3>
 				<p>Signed in as {account?.email || "your account"}. Chat and tool calls work; image results need a plan with image generation.</p>
-				<button type="button" className="agent-primary-button" onClick={() => window.open("https://chatgpt.com/#pricing", "_blank", "noopener,noreferrer")}>See plans</button>
+				<button type="button" className="agent-primary-button" onClick={() => window.open("https://chatgpt.com/#pricing", "_blank", "noopener,noreferrer")}>{ko("See plans", "요금제 보기")}</button>
 			</div>}
 
 			{authState === "ready" && !items.length && !rateLimit && <div className="agent-state-card" data-agent-card="ready">
@@ -931,7 +933,7 @@ export default function AgentPanel({
 			onDrop={composerDisabled ? undefined : onComposerDrop}
 			onPaste={composerDisabled ? undefined : onComposerPaste}
 		>
-			{pendingAttachments.length > 0 && <ul className="agent-attachments" aria-label="Attached images">
+			{pendingAttachments.length > 0 && <ul className="agent-attachments" aria-label={ko("Attached images", "첨부한 이미지")}>
 				{pendingAttachments.map((attachment) => <li key={attachment.id} className="agent-attachment">
 					<img src={attachment.dataUrl} alt={attachment.name || "Attached image"} />
 					<button type="button" className="agent-attachment-remove" aria-label={`Remove ${attachment.name || "attached image"}`} onClick={() => store.removeAttachment(attachment.id)}><FiX size={10} aria-hidden="true" /></button>
@@ -942,7 +944,7 @@ export default function AgentPanel({
 				<textarea
 					ref={composerRef}
 					className="agent-input"
-					aria-label="Message the agent"
+					aria-label={ko("Message the agent", "에이전트에게 메시지")}
 					placeholder={panelState === "rate-limited" ? "Composer is paused" : model ? presentation.composerPlaceholder : "Waiting for the model list…"}
 					value={draft}
 					disabled={composerDisabled}
@@ -952,13 +954,13 @@ export default function AgentPanel({
 					onDrop={onComposerDrop}
 				/>
 				<div className="agent-composer-controls">
-					<button type="button" className="agent-attach-chip" aria-pressed={attachFrame} aria-label="Attach current frame" title="Attach current frame" onClick={() => setAttachFrame((value) => !value)}>
+					<button type="button" className="agent-attach-chip" aria-pressed={attachFrame} aria-label={ko("Attach current frame", "현재 프레임 첨부")} title={ko("Attach current frame", "현재 프레임 첨부")} onClick={() => setAttachFrame((value) => !value)}>
 						{attachFrame ? <span className="agent-attach-thumb" aria-hidden="true" /> : <FiPaperclip size={13} aria-hidden="true" />}
 					</button>
 					{/* Five providers in one dropdown: grouped by the provider that serves
 					    them, and a provider without a credential still lists its models —
 					    unpickable, and saying what they are waiting for. */}
-					<select className="agent-model-select" aria-label="Model" title="Model" value={model} disabled={!models.length} onChange={(event) => chooseModel(event.target.value)}>
+					<select className="agent-model-select" aria-label={ko("Model", "모델")} title={ko("Model", "모델")} value={model} disabled={!models.length} onChange={(event) => chooseModel(event.target.value)}>
 						{modelProviders.length
 							? modelProviders.map((provider) => <optgroup key={provider.id} label={provider.label}>
 								{provider.models.length
@@ -970,7 +972,7 @@ export default function AgentPanel({
 								: <option value="">{modelsState === "failed" ? "No model available" : "Loading models…"}</option>}
 					</select>
 					{efforts.length > 0 && (
-						<select className="agent-model-select agent-effort-select" aria-label="Reasoning effort" title="Reasoning effort" value={effort ?? efforts[0]} onChange={(event) => setEffort(event.target.value)}>
+						<select className="agent-model-select agent-effort-select" aria-label={ko("Reasoning effort", "추론 강도")} title={ko("Reasoning effort", "추론 강도")} value={effort ?? efforts[0]} onChange={(event) => setEffort(event.target.value)}>
 							{/* The closed select shows only the word; "default" rides in the
 							    option's tooltip so the composer row stays one line. */}
 							{efforts.map((value, index) => <option key={value} value={value} title={index === 0 ? "Default for this model" : undefined}>{value}</option>)}
@@ -991,10 +993,10 @@ export default function AgentPanel({
 					    that can be steered, Send becomes the way INTO it. */}
 					{streaming
 						? <>
-							<button type="button" className="agent-send stop agent-stop" onClick={stopTurn}>Stop</button>
-							{presentation.steer && <button type="button" className="agent-send agent-steer" disabled={!draft.trim()} onClick={() => steerTurn(draft)}>Steer</button>}
+							<button type="button" className="agent-send stop agent-stop" onClick={stopTurn}>{ko("Stop", "중지")}</button>
+							{presentation.steer && <button type="button" className="agent-send agent-steer" disabled={!draft.trim()} onClick={() => steerTurn(draft)}>{ko("Steer", "방향 지시")}</button>}
 						</>
-						: <button type="button" className="agent-send" aria-label="Send" title="Send (Enter)" disabled={composerDisabled || !draft.trim()} onClick={() => runTurn(draft)}><FiArrowUp size={14} aria-hidden="true" /></button>}
+						: <button type="button" className="agent-send" aria-label={ko("Send", "보내기")} title={ko("Send (Enter)", "보내기 (Enter)")} disabled={composerDisabled || !draft.trim()} onClick={() => runTurn(draft)}><FiArrowUp size={14} aria-hidden="true" /></button>}
 				</div>
 				<ModelRolesLine model={model} roles={selectedModelRoles(modelRoles, model)} />
 			</div>
@@ -1003,7 +1005,7 @@ export default function AgentPanel({
 		    generate an image has nothing to warn about. */}
 		{authenticated && presentation.imageHint && <p className="agent-footer-hint">{presentation.imageHint}</p>}
 
-		{lightbox && <button type="button" className="agent-lightbox" aria-label="Close image preview" onClick={() => setLightbox(null)}>
+		{lightbox && <button type="button" className="agent-lightbox" aria-label={ko("Close image preview", "이미지 미리보기 닫기")} onClick={() => setLightbox(null)}>
 			<img src={lightbox.dataUrl} alt={lightbox.prompt || "Generated image"} />
 		</button>}
 	</aside>;

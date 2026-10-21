@@ -1,3 +1,4 @@
+import { ko } from "../locale.js";
 import { useEffect, useMemo, useState } from "react";
 import { startExportAttempt, track } from "../analytics.js";
 import { downloadPack, requestKeyframePack } from "./keyframe-pack-request.js";
@@ -29,7 +30,7 @@ function statusLabel(status) {
 }
 
 function SceneViewport() {
-	return <iframe className="cozy-scene-live-frame nodrag nopan" src="/app/?embed=playview" title="CozyClay Studio PlayView preview" aria-label="CozyClay Studio PlayView preview" />;
+	return <iframe className="cozy-scene-live-frame nodrag nopan" src="/app/?embed=playview" title={ko("CozyClay Studio PlayView preview", "CozyClay 스튜디오 재생 미리보기")} aria-label={ko("CozyClay Studio PlayView preview", "CozyClay 스튜디오 재생 미리보기")} />;
 }
 
 function callbackFrom(data, prop) {
@@ -115,8 +116,8 @@ export default function CozySceneNode({ id = "cozy-scene", data: rawData = {}, s
 	});
 
 	return (
-		<article className={`cozy-scene-node${selected ? " is-selected" : ""}`} data-node-id={id} data-node-type="cozyclay-scene" aria-label="CozyClay Scene node">
-			<div className="cozy-scene-node-inputs" aria-label="Scene inputs">
+		<article className={`cozy-scene-node${selected ? " is-selected" : ""}`} data-node-id={id} data-node-type="cozyclay-scene" aria-label={ko("CozyClay Scene node", "CozyClay 장면 노드")}>
+			<div className="cozy-scene-node-inputs" aria-label={ko("Scene inputs", "장면 입력")}>
 				{sceneInputSpecs(data.characters?.length ? data.characters : (data.characterInputs || []).map((entry) => ({ id: entry.characterId, subject: entry.characterId })), { includeLegacyMotion: true }).map((spec) => <Handle key={spec.id} {...handleProps(spec, "target", "left")} />)}
 			</div>
 			<header className="cozy-scene-node-header">
@@ -127,36 +128,36 @@ export default function CozySceneNode({ id = "cozy-scene", data: rawData = {}, s
 				<span className={`cozy-scene-node-status status-${pack.error ? "error" : pack.message ? "complete" : data.status}${pack.error || pack.message ? " has-pack" : ""}`} role="status">{pack.error || pack.message || statusLabel(data.status)}</span>
 			</header>
 
-			<section className="cozy-scene-preview" aria-label="3D scene preview">
+			<section className="cozy-scene-preview" aria-label={ko("3D scene preview", "3D 장면 미리보기")}>
 				{/* The live previs is never swapped out for the capture: a render is a
 				    still, and replacing the frame with it left Play ticking a counter
 				    over a dead picture (#218). The capture rides along as a thumbnail. */}
 				<SceneViewport />
-				{data.preview === "render" && data.lastOutput?.renderUrl && <figure className="cozy-scene-render-thumb"><img src={data.lastOutput.renderUrl} alt="Captured scene frame" /><figcaption>Last render</figcaption></figure>}
-				{data.preview === "render" && <div className="cozy-scene-preview-copy"><strong>Live previs</strong><span>{data.statusMessage || "Open Studio to edit the scene"}</span></div>}
+				{data.preview === "render" && data.lastOutput?.renderUrl && <figure className="cozy-scene-render-thumb"><img src={data.lastOutput.renderUrl} alt={ko("Captured scene frame", "캡처한 장면 프레임")} /><figcaption>{ko("Last render", "마지막 렌더")}</figcaption></figure>}
+				{data.preview === "render" && <div className="cozy-scene-preview-copy"><strong>{ko("Live previs", "실시간 프리비즈")}</strong><span>{data.statusMessage || "Open Studio to edit the scene"}</span></div>}
 			</section>
 
-			<section className="cozy-scene-controls" aria-label="Scene controls">
+			<section className="cozy-scene-controls" aria-label={ko("Scene controls", "장면 컨트롤")}>
 				<div className="cozy-scene-control-row">
 					<button type="button" className="cozy-scene-button" onClick={() => emit({ controls: { playing: !data.controls.playing } })} aria-label={data.controls.playing ? "Pause scene" : "Play scene"} aria-pressed={data.controls.playing}>{data.controls.playing ? "Pause" : "Play"}</button>
-					<button type="button" className="cozy-scene-button" onClick={() => openScene?.({ id, data })}>Open Studio</button>
-					<button type="button" className="cozy-scene-send" onClick={sendToAi} disabled={pack.pending} title="Export this shot's keyframe pack for an AI video model">{pack.pending ? "Packing…" : "Send to AI"}</button>
+					<button type="button" className="cozy-scene-button" onClick={() => openScene?.({ id, data })}>{ko("Open Studio", "스튜디오 열기")}</button>
+					<button type="button" className="cozy-scene-send" onClick={sendToAi} disabled={pack.pending} title={ko("Export this shot's keyframe pack for an AI video model", "AI 영상 모델용으로 이 샷의 키프레임 팩 내보내기")}>{pack.pending ? "Packing…" : "Send to AI"}</button>
 					<button type="button" className="cozy-scene-run" onClick={() => run?.({ id, data })} disabled={data.status === "running"}>{data.status === "running" ? "Rendering…" : "Run"}</button>
 				</div>
-				<label className="cozy-scene-frame-control">Frame <input aria-label="Scene frame" type="range" min="0" max={maxFrame} value={Math.min(data.frame, maxFrame)} onChange={(event) => emit({ frame: Number(event.currentTarget.value), controls: { playing: false } })} /> <output aria-live="polite">{Math.min(data.frame, maxFrame)}/{maxFrame}</output></label>
-				<div className="cozy-scene-camera-row" aria-label="Camera orbit controls">
-					<button type="button" onClick={() => emit({ controls: { camera: { yaw: data.controls.camera.yaw - 15 } } })} aria-label="Orbit camera left">◀</button>
+				<label className="cozy-scene-frame-control">{ko("Frame", "프레임")} <input aria-label={ko("Scene frame", "장면 프레임")} type="range" min="0" max={maxFrame} value={Math.min(data.frame, maxFrame)} onChange={(event) => emit({ frame: Number(event.currentTarget.value), controls: { playing: false } })} /> <output aria-live="polite">{Math.min(data.frame, maxFrame)}/{maxFrame}</output></label>
+				<div className="cozy-scene-camera-row" aria-label={ko("Camera orbit controls", "카메라 궤도 컨트롤")}>
+					<button type="button" onClick={() => emit({ controls: { camera: { yaw: data.controls.camera.yaw - 15 } } })} aria-label={ko("Orbit camera left", "카메라 왼쪽으로 회전")}>◀</button>
 					<span>Camera {Math.round(data.controls.camera.yaw)}° / {Math.round(data.controls.camera.pitch)}°</span>
-					<button type="button" onClick={() => emit({ controls: { camera: { yaw: data.controls.camera.yaw + 15 } } })} aria-label="Orbit camera right">▶</button>
+					<button type="button" onClick={() => emit({ controls: { camera: { yaw: data.controls.camera.yaw + 15 } } })} aria-label={ko("Orbit camera right", "카메라 오른쪽으로 회전")}>▶</button>
 				</div>
 				<div className="cozy-scene-handoff">
-					<button type="button" className="cozy-scene-video" onClick={() => sendToVideo?.({ id, data })} title="Add a Video node fed by this scene's render">→ Video</button>
-					<p className="cozy-scene-hint">Play to check the previs, then send render → Video to generate a clip.</p>
+					<button type="button" className="cozy-scene-video" onClick={() => sendToVideo?.({ id, data })} title={ko("Add a Video node fed by this scene's render", "이 장면 렌더를 받는 영상 노드 추가")}>{ko("→ Video", "→ 영상")}</button>
+					<p className="cozy-scene-hint">{ko("Play to check the previs, then send render → Video to generate a clip.", "재생해서 프리비즈를 확인한 뒤, 렌더 → 영상으로 보내 클립을 생성하세요.")}</p>
 				</div>
 			</section>
 
 			<footer className="cozy-scene-node-footer"><span>{data.assetInputs.length} asset{data.assetInputs.length === 1 ? "" : "s"}</span><span>{data.motionInputs.length} motion{data.motionInputs.length === 1 ? "" : "s"}</span></footer>
-			<div className="cozy-scene-node-outputs" aria-label="Scene outputs">
+			<div className="cozy-scene-node-outputs" aria-label={ko("Scene outputs", "장면 출력")}>
 				{COZY_SCENE_OUTPUTS.map((spec) => <Handle key={spec.id} {...handleProps(spec, "source", "right")} />)}
 			</div>
 		</article>
