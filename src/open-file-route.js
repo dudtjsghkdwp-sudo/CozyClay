@@ -49,3 +49,7 @@ export function openErrorMessage(err, fileName) {
 			: (err?.message || String(err));
 	return ko(`Could not open ${what}— ${detail}`, `${what}파일을 열지 못했어요 — ${detail}`);
 }
+
+/** Closing the Open dialog: the command still reports "not opened" to agents,
+ * but the UI shows no error toast for it. */
+export const OPEN_CANCELLED_MESSAGE = "Not opened: the user closed the file picker.";

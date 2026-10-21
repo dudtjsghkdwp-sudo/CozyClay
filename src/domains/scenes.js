@@ -46,7 +46,7 @@ import { openAssetDb, referencedAssetIds, getAsset, putAsset } from "../scene-as
 import { internWorkflowOutputs, workflowOutputRefs, resolveWorkflowOutputs } from "../workflow/workflow-resources.js";
 
 import { resourceManifest } from "../project-resources.js";
-import { isKo, ko } from "../locale.js"; import { openErrorMessage, openFileRoute, projectReadFailureMessage, unsupportedOpenMessage } from "../open-file-route.js";
+import { isKo, ko } from "../locale.js"; import { OPEN_CANCELLED_MESSAGE, openErrorMessage, openFileRoute, projectReadFailureMessage, unsupportedOpenMessage } from "../open-file-route.js";
 import { track, bucketCount, bucketProjectAge, startExportAttempt } from "../analytics.js";
 import { mergeProjectCustomPoses } from "../project-poses.js";
 import { DEFAULT_WORKSPACE_LAYOUT, DEFAULT_DURATION_S, TIMELINE_FPS } from "../app-stage.jsx";
@@ -150,7 +150,7 @@ export function useScenes(appContext) {
 	const runtimeValues = useRef(new Map());
 	async function runProject(id, args = {}) {
 		const receipt = await appContext.bus.run(id, args);
-		if (!receipt.ok) appContext.notify(receipt.message);
+		if (!receipt.ok && receipt.message !== OPEN_CANCELLED_MESSAGE) appContext.notify(receipt.message);
 		return receipt;
 	}
 	async function runWithValue(id, key, value) {

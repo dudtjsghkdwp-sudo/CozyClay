@@ -81,5 +81,5 @@ assert.equal(readProjectDocument(readFileSync(new URL("../public/scenes/korean-s
 const projectSource = readFileSync(new URL("../src/project.js", import.meta.url), "utf8");
 assert.ok(projectSource.includes("excludeAcceptAllOption: false") && !projectSource.includes("input.accept = `${PROJECT_EXTENSION}"), "Open lists all files");
 const commandSource = readFileSync(new URL("../src/commands/project.js", import.meta.url), "utf8");
-assert.ok(commandSource.includes("result?.cancelled") && !commandSource.includes("check the project dialog"), "cancel is not a failure");
+assert.ok(commandSource.includes("result?.cancelled") && readFileSync(new URL("../src/domains/scenes.js", import.meta.url), "utf8").includes("receipt.message !== OPEN_CANCELLED_MESSAGE") && !commandSource.includes("check the project dialog"), "cancel is not a failure");
 console.log("PASS File > Open lists all files and explains every failure");
