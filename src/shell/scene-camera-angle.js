@@ -26,7 +26,7 @@ export const ANGLE_PRESETS = Object.freeze([
 ]);
 
 const clamp = (v, { min, max }) => Math.min(max, Math.max(min, v));
-const wrapDeg = (v) => ((((v + 180) % 360) + 360) % 360) - 180;
+const wrapDeg = (v) => { const w = ((((v + 180) % 360) + 360) % 360) - 180; return w === -180 ? 180 : w; };
 
 export function normalizeAngle(angle = {}) {
 	const pick = (key) => Number.isFinite(Number(angle[key])) ? Number(angle[key]) : DEFAULT_SCENE_ANGLE[key];

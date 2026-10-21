@@ -83,3 +83,37 @@ assert.ok(projectSource.includes("excludeAcceptAllOption: false") && !projectSou
 const commandSource = readFileSync(new URL("../src/commands/project.js", import.meta.url), "utf8");
 assert.ok(commandSource.includes("result?.cancelled") && readFileSync(new URL("../src/domains/scenes.js", import.meta.url), "utf8").includes("receipt.message !== OPEN_CANCELLED_MESSAGE") && !commandSource.includes("check the project dialog"), "cancel is not a failure");
 console.log("PASS File > Open lists all files and explains every failure");
+
+// AI-free camera command parser.
+import { parseCameraCommand, parseAnglePhrase, shotsFromSegments, segmentsEndFrame, CYCLE_ANGLES } from "../src/shell/camera-command.js";
+{
+	const r = parseCameraCommand("0-5초 정면, 5-10초 측면 로우앵글, 10-15초 탑뷰", { fps: 24, frameCount: 240 });
+	assert.deepEqual(r.errors, []);
+	assert.deepEqual(r.segments.map((s) => [s.startFrame, s.endFrame]), [[0, 119], [120, 239], [240, 359]]);
+	assert.equal(r.segments[0].angle.azimuthDeg, 0);
+	assert.equal(r.segments[1].angle.azimuthDeg, 90); assert.equal(r.segments[1].angle.elevationDeg, -20);
+	assert.equal(r.segments[2].angle.elevationDeg, 80);
+	assert.equal(segmentsEndFrame(r.segments), 360);
+	const en = parseCameraCommand("0-2s front close\n2-4s back high wide\n4-6s rear 3/4", { fps: 30 });
+	assert.deepEqual(en.errors, []);
+	assert.equal(en.segments[0].angle.distance, 1.2); assert.equal(en.segments[1].angle.azimuthDeg, 180); assert.equal(en.segments[1].angle.distance, 6);
+	assert.equal(en.segments[2].angle.azimuthDeg, 135); assert.equal(en.segments[1].endFrame, 119);
+	const nums = parseCameraCommand("0-48f 거리 2 높이 30 회전 -45 화각 35", { fps: 24 });
+	assert.deepEqual(nums.segments[0].angle, { azimuthDeg: -45, elevationDeg: 30, distance: 2, fovDeg: 35 });
+	assert.equal(nums.segments[0].endFrame, 47);
+	assert.equal(parseAnglePhrase("앞 3/4").angle.azimuthDeg, 45);
+	const cyc = parseCameraCommand("5초마다 여러 각도", { fps: 24, frameCount: 24 * 12 });
+	assert.deepEqual(cyc.segments.map((s) => [s.startFrame, s.endFrame]), [[0, 119], [120, 239], [240, 287]]);
+	assert.deepEqual(cyc.segments.map((s) => s.label), CYCLE_ANGLES.slice(0, 3).map((c) => c.label));
+	const bad = parseCameraCommand("정면으로 해줘\n3-1초 측면\n0-2초 바나나\n0-2초 정면, 1-3초 측면");
+	assert.equal(bad.errors.length, 4);
+	assert.ok(bad.errors.every((e) => /[가-힣]/.test(e.message)), "errors are Korean");
+	assert.match(bad.errors[0].message, /시간 구간/); assert.match(bad.errors[1].message, /끝 시간/); assert.match(bad.errors[2].message, /각도 단어/); assert.match(bad.errors[3].message, /겹쳐/);
+	let n = 0; const make = (name, startFrame, endFrame, cameraKeys) => ({ id: `s${n++}`, name, startFrame, endFrame, cameraKeys });
+	const existing = [make("old-a", 0, 50, []), make("old-b", 400, 450, [])];
+	const shots = shotsFromSegments(existing, r.segments, { x: 0, z: 0, rot: 0 }, make);
+	assert.deepEqual(shots.map((s) => s.name), ["1. 정면 · 아이 레벨 · 미디엄 와이드", "2. 측면 · 로우 앵글 · 미디엄 와이드", "3. 정면 · 탑뷰 · 미디엄 와이드", "old-b"]);
+	const key = shots[0].cameraKeys[0];
+	assert.equal(key.frame, 0); assert.ok(Math.abs(key.framing.yaw) < 1e-9 && key.framing.pos.z > 0, "front camera sits in front, looking back at the subject");
+}
+console.log("PASS AI-free camera command parser");

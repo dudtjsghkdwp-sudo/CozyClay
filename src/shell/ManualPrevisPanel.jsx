@@ -3,6 +3,7 @@ import { useStudioShell } from './studio-shell-context.js';
 import { WALK_DIRECTIONS, buildWalkSpec } from './manual-walk.js';
 import streetObjects from './korean-street-objects.json';
 import SceneAngleControls from './SceneAngleControls.jsx';
+import CameraCommandBox from './CameraCommandBox.jsx';
 import './manual-previs.css';
 
 export default function ManualPrevisPanel() {
@@ -80,6 +81,7 @@ export default function ManualPrevisPanel() {
       <div className="manual-row"><button disabled={busy} onClick={() => { s.enterShotLook(); setMessage('마우스로 구도를 바꾼 뒤 현재 구도 저장을 누르세요.'); }}>마우스로 카메라 조절</button><button disabled={busy || !s.lookThroughShot} onClick={() => perform(saveCamera)}>현재 구도 저장</button></div>
       <p>Alt + 왼쪽 드래그: 회전 · 휠: 앞뒤<br/>휠 버튼 드래그: 상하좌우 · 오른쪽 드래그: 시선<br/>오른쪽 누른 채 W/A/S/D: 이동 · Q/E: 위아래</p>
       <p className="manual-note">타임라인에서 프레임을 고른 뒤 구도를 저장하세요. 저장한 샷은 자동 레일 대신 카메라 키를 사용합니다.</p>
+      <CameraCommandBox busy={busy} perform={perform} action={action} setMessage={setMessage} character={character} />
       <SceneAngleControls busy={busy} perform={perform} action={action} setMessage={setMessage} character={character} />
       <h3>2. 인물 걷기</h3>
       <div className="manual-row"><label>거리 (m)<input aria-label="이동 거리" type="number" min="0.5" max="3" step="0.5" value={distance} onChange={e => setDistance(e.target.value)} /></label><label>시간 (초)<input aria-label="이동 시간" type="number" min="3" max="8" step="1" value={seconds} onChange={e => setSeconds(e.target.value)} /></label></div>

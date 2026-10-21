@@ -635,7 +635,7 @@ const PROVIDER_ENV_VARS = {
 	openai: ["OPENAI_API_KEY"],
 	google: ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
 	openrouter: ["OPENROUTER_API_KEY"],
-	cliproxy: ["CLIPROXY_API_KEY"],
+	cliproxy: ["CLIPROXY_API_KEY"], local: ["LOCAL_LLM_BASE_URL"],
 };
 
 /** "set by <ENV_VAR>" for a provider whose key comes from the environment. */

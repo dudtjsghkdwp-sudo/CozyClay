@@ -26,11 +26,11 @@ export default function SceneAngleControls({ busy, perform, action, setMessage, 
   // Selecting another shot (here or on the timeline) loads that shot's angle.
   useEffect(() => { view.current = null; setAngle(stored ?? DEFAULT_SCENE_ANGLE); }, [active?.id, stored]);
 
-  const live = useRef({});
-  live.current = { active, character, autoApply, busy, look: s.lookThroughShot, perform };
+  const latest = useRef({});
+  latest.current = { active, character, autoApply, busy, look: s.lookThroughShot, perform };
   // Mouse in the viewport -> sliders, live; on release, optionally save.
   useEffect(() => onCameraView(({ framing, final }) => {
-    const { active: shot, character: subject, autoApply: auto, busy: working, look, perform: run } = live.current;
+    const { active: shot, character: subject, autoApply: auto, busy: working, look, perform: run } = latest.current;
     if (!look || !subject) return;
     const next = framingToAngle(subject, framing);
     if (!next) return;
@@ -45,7 +45,7 @@ export default function SceneAngleControls({ busy, perform, action, setMessage, 
     s.enterShotLook?.();
   }
   async function applyView(shot, framing, value) {
-    const subject = live.current.character;
+    const subject = latest.current.character;
     const exact = exactFromView(framing, subjectPivot(subject), Math.round(fovToFocalMm(value.fovDeg * Math.PI / 180) * 10) / 10);
     await action('shot.frame', { shotId: shot.id, subjectIds: [subject.id], framing: { exact } });
     setMessage(`마우스로 바꾼 구도를 '${shot.name}' 장면에 저장했습니다 — ${describeAngle(value)} (Ctrl+Z로 되돌리기)`);

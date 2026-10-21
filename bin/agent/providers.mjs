@@ -4,7 +4,7 @@ import * as defaultKeys from "./provider-keys.mjs";
 import { createCredentialStore } from "./credential-store.mjs";
 import { readCredentials } from "./provider-keys.mjs";
 import { cliproxyBase, cliproxyProvider, extendCliproxyProvider, registryLiveCliproxy } from "./cliproxy-provider.mjs";
-export { cliproxyLiveModel } from "./cliproxy-provider.mjs";
+export { cliproxyLiveModel } from "./cliproxy-provider.mjs"; import { localProvider } from "./local-provider.mjs";
 
 // #379 (F2 pass 5 finding 4): pi never forwards a per-request `fetch` to the
 // codex API module — `pi-agent-core`'s `createRequestOptions` (the options
@@ -61,7 +61,7 @@ export const PROVIDERS = [
 	{ id: "openai", label: "OpenAI", auth: "api_key", env: ["OPENAI_API_KEY"] },
 	{ id: "google", label: "Google Gemini", auth: "api_key", env: ["GEMINI_API_KEY", "GOOGLE_API_KEY"] },
 	{ id: "openrouter", label: "OpenRouter", auth: "api_key", env: ["OPENROUTER_API_KEY"] },
-	{ id: "cliproxy", label: "CLIProxyAPI", auth: "api_key", env: ["CLIPROXY_API_KEY"] },
+	{ id: "cliproxy", label: "CLIProxyAPI", auth: "api_key", env: ["CLIPROXY_API_KEY"] }, { id: "local", label: "Local model (Ollama / LM Studio)", auth: "api_key", env: ["LOCAL_LLM_BASE_URL"] },
 ];
 
 const factories = {
@@ -79,10 +79,10 @@ export async function loadProvider(id, options = {}) {
 	const config = providerConfig(id);
 	if (!config) throw Object.assign(new Error(`Unknown provider: ${id}`), { code: "UNKNOWN_PROVIDER" });
 	if (id === "openai-codex") ensureCodexFetchPatched();
-	const provider = id === "cliproxy"
+	const provider = id === "local" ? await localProvider({ env, credential: options.credential }) : id === "cliproxy"
 		? await cliproxyProvider({ baseUrl, env })
 		: await import(`@earendil-works/pi-ai/providers/${id}`).then((module) => module[factories[id]]());
-	if (baseUrl && id !== "cliproxy") {
+	if (baseUrl && id !== "cliproxy" && id !== "local") {
 		provider.baseUrl = baseUrl;
 		const getModels = provider.getModels.bind(provider);
 		provider.getModels = () => getModels().map((model) => ({ ...model, baseUrl }));
@@ -154,7 +154,7 @@ export async function createModels({ credentials, auth = defaultAuth, keys = def
 	const models = createPiModels({ credentials: store });
 	for (const provider of PROVIDERS) {
 		const baseUrl = provider.id === "openai-codex" ? codexBaseUrl : provider.id === "cliproxy" ? cliproxyBaseUrl ?? cliproxyBase({ env, credential: await store.read("cliproxy").catch(() => undefined) }) : undefined;
-		models.setProvider(await loadProvider(provider.id, { baseUrl, env }));
+		models.setProvider(await loadProvider(provider.id, { baseUrl, env, credential: provider.id === "local" ? await store.read("local").catch(() => undefined) : undefined }));
 	}
 	// every other provider pi ships, so each of pi's logins (subscriptions and api keys) has a provider to land on (#pi-login)
 	const { builtinProviders } = await import("@earendil-works/pi-ai/providers/all");
@@ -230,11 +230,11 @@ function effortsFor(levels) {
  * image input and shaped for the panel: key-addressed, effort levels in the
  * frozen wire vocabulary. */
 function catalogModels(models, providerId, getSupportedThinkingLevels) {
-	return models.getModels(providerId)
-		.filter((model) => Array.isArray(model.input) && model.input.includes("text") && model.input.includes("image"))
+	return models.getModels(providerId) // a local model may be text-only: pi turns images into a text note for it
+		.filter((model) => Array.isArray(model.input) && model.input.includes("text") && (providerId === "local" || model.input.includes("image")))
 		.map((model) => {
 			const { efforts, defaultEffort } = effortsFor(getSupportedThinkingLevels(model));
-			return { id: model.id, key: `${providerId}/${model.id}`, label: model.name ?? model.id, efforts, defaultEffort, input: ["text", "image"] };
+			return { id: model.id, key: `${providerId}/${model.id}`, label: model.name ?? model.id, efforts, defaultEffort, input: model.input.includes("image") ? ["text", "image"] : ["text"] };
 		});
 }
 

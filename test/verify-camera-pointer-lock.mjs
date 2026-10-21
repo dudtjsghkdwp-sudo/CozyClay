@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import * as THREE from "three";
+import { emitCameraView, leftOrbitShouldStart } from "../src/camera-view-sync.js";
 
 const source = readFileSync(new URL("../src/controls.jsx", import.meta.url), "utf8")
 	.replace(/^import .*;\n/gm, "")
@@ -60,7 +61,7 @@ function mount({ lock = "granted", enabled = true } = {}) {
 		document.dispatchEvent({ type: "pointerlockchange" });
 	};
 	const context = {
-		THREE, window, document,
+		THREE, window, document, emitCameraView: (camera, final) => emitCameraView(camera, final, window), leftOrbitShouldStart, setTimeout, clearTimeout,
 		CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
 		useRef: (current) => ({ current }),
 		useEffect: (effect) => effects.push(effect),
