@@ -97,18 +97,18 @@ async function loadLocaleModule(storedValue, browserLanguage = "ko-KR", storageT
 }
 
 const defaultOnKoreanBrowser = await loadLocaleModule(null, "ko-KR");
-assert.equal(defaultOnKoreanBrowser.LOCALE, "en", "a Korean browser still starts in English without a saved choice");
-assert.equal(defaultOnKoreanBrowser.isKo, false);
+assert.equal(defaultOnKoreanBrowser.LOCALE, "ko", "the local studio starts in Korean without a saved choice");
+assert.equal(defaultOnKoreanBrowser.isKo, true);
 
 const invalidStoredLocale = await loadLocaleModule("ko-KR", "ko-KR");
-assert.equal(invalidStoredLocale.LOCALE, "en", "an invalid stored value falls back to English");
+assert.equal(invalidStoredLocale.LOCALE, "ko", "an invalid stored value falls back to Korean");
 
 const unavailableStorageLocale = await loadLocaleModule(null, "ko-KR", true);
-assert.equal(unavailableStorageLocale.LOCALE, "en", "unavailable storage falls back to English");
+assert.equal(unavailableStorageLocale.LOCALE, "ko", "unavailable storage falls back to Korean");
 
 const localeSource = source("src/locale.js");
 assert.doesNotMatch(localeSource, /navigator\.language/, "browser language must not choose the default locale");
-assert.match(localeSource, /stored\(\) \?\? "en"/, "English remains the no-choice fallback");
+assert.match(localeSource, /stored\(\) \?\? "ko"/, "Korean is the local no-choice fallback");
 
 const enLocale = await loadLocaleModule("en");
 assert.equal(enLocale.LOCALE, "en");
@@ -151,3 +151,4 @@ assert.match(source("src/shot.js"), /Camera move:/);
 assert.match(source("src/shot.js"), /Use the attached blocking frame ONLY/);
 
 console.log("all Korean option locale checks PASS");
+

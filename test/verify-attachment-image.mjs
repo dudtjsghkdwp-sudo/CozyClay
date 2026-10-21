@@ -49,7 +49,7 @@ expect("a typeless drop falls back to its extension", attachmentType(fakeFile("s
 	const gif = fakeFile("loop.gif", "image/gif");
 	const txt = fakeFile("notes.txt", "text/plain");
 	const fromFiles = attachmentFilesFromTransfer({ files: [txt, png, gif], items: [] });
-	expect("a drop keeps every supported image and counts the refused ones", fromFiles.images.length === 1 && fromFiles.images[0] === png && fromFiles.unsupported === 1, JSON.stringify(fromFiles.images.map((file) => file.name)));
+	expect("a drop keeps every image (a GIF is converted to a still later)", fromFiles.images.length === 2 && fromFiles.images[0] === png && fromFiles.unsupported === 0, JSON.stringify(fromFiles.images.map((file) => file.name)));
 	const fromItems = attachmentFilesFromTransfer({ files: [], items: [{ kind: "string", type: "text/plain" }, { kind: "file", type: "image/png", getAsFile: () => png }] });
 	expect("a clipboard that only exposes items still yields the bitmap", fromItems.images.length === 1 && fromItems.images[0] === png);
 	const textOnly = attachmentFilesFromTransfer({ files: [], items: [{ kind: "string", type: "text/plain" }] });

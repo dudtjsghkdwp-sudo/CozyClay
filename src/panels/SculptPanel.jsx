@@ -3,6 +3,7 @@ import Foldout from "./Foldout.jsx";
 import { ko, isKo } from "../locale.js";
 import { effortOptions } from "../workflow/agent-client.js";
 import "./sculpt.css";
+import { REFERENCE_ACCEPT, isReferenceMedia, referenceFileToStill } from "../reference-media.js";
 
 // Sculpt mode side panel (#739). Pure view: the run controller owns the run state and the
 // reference; this panel only renders it and reports the operator's intent through callbacks.
@@ -14,10 +15,8 @@ const STAGES = [
 	["refine", ko("Refine", "다듬기")],
 ];
 const RUNNING = new Set(["measure", "draft", "score", "refine"]);
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
-
 function pickImage(files) {
-	return [...(files ?? [])].find((file) => IMAGE_TYPES.has(file.type)) ?? null;
+	return [...(files ?? [])].find((file) => isReferenceMedia(file)) ?? null;
 }
 
 function formatElapsed(ms) {
@@ -273,7 +272,7 @@ export default function SculptPanel({ run, reference, onReference, onStart, onCa
 
 	const take = (files) => {
 		const file = pickImage(files);
-		if (file) onReference?.(file);
+		if (file) referenceFileToStill(file).then((still) => onReference?.(still), () => {});
 	};
 	const openPicker = () => fileRef.current?.click();
 
@@ -284,7 +283,7 @@ export default function SculptPanel({ run, reference, onReference, onStart, onCa
 					const file = pickImage(event.clipboardData?.files);
 					if (!file) return;
 					event.preventDefault();
-					onReference?.(file);
+					referenceFileToStill(file).then((still) => onReference?.(still), () => {});
 				}}>
 
 				<div className="sculpt-label"><span>{ko("Reference", "참조 이미지")}</span>{reference?.name && <small title={reference.name}>{reference.name}</small>}</div>
@@ -310,11 +309,11 @@ export default function SculptPanel({ run, reference, onReference, onStart, onCa
 						onDragLeave={() => setDragging(false)}
 						onDrop={(event) => { event.preventDefault(); setDragging(false); take(event.dataTransfer?.files); }}>
 						<span className="sculpt-well-title">{ko("Drop or paste a reference image", "참조 이미지를 끌어놓거나 붙여넣으세요")}</span>
-						<span className="sculpt-well-sub">PNG · JPEG · WebP</span>
+						<span className="sculpt-well-sub">{ko("Any image or video (a frame is used)", "모든 이미지·영상 (영상은 한 프레임 사용)")}</span>
 						<span className="btn ghost small" aria-hidden="true">{ko("Choose file", "파일 선택")}</span>
 					</div>
 				)}
-				<input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="multimodel-file-input" data-testid="sculpt-reference-input"
+				<input ref={fileRef} type="file" accept={REFERENCE_ACCEPT} className="multimodel-file-input" data-testid="sculpt-reference-input"
 					aria-label={ko("Reference image file", "참조 이미지 파일")}
 					onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ""; take(files); }} />
 

@@ -5,6 +5,7 @@ import TopBar, { ProjectHead } from "./TopBar.jsx";
 import OutlinerSlot from "./OutlinerSlot.jsx";
 import DetailsSlot from "./DetailsSlot.jsx";
 import BottomDock from "./BottomDock.jsx";
+import ManualPrevisPanel from './ManualPrevisPanel.jsx';
 import StatusBar from "./StatusBar.jsx";
 import PreferencesSlot from "./PreferencesSlot.jsx";
 import "./shell.css";
@@ -46,6 +47,7 @@ export default function StudioShell({ viewport, children, ...props }) {
 			<div className="main">
 				<div className="workspace">
 					{viewport}
+					{!embedded && <ManualPrevisPanel />}
 					<div className="studio-left-column">
 						<ProjectHead />
 						<OutlinerSlot />
@@ -90,3 +92,4 @@ export default function StudioShell({ viewport, children, ...props }) {
 		</div>
 	);
 }
+

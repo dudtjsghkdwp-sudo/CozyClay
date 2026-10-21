@@ -8,7 +8,7 @@ import { useUiTheme } from "./theme.js";
 
 export function TemplateThumb({ id }) {
 	const theme = useUiTheme();
-	const src = `/thumbs/${id}-${theme}.webp`;
+	const src = id === "korean-street" ? "/thumbs/korean-street.png" : `/thumbs/${id}-${theme}.webp`;
 	const [failed, setFailed] = useState(null);
 	if (failed === src) return null;
 	return <img className="v2-start-art" src={src} alt="" aria-hidden="true" draggable="false" decoding="async" onError={() => setFailed(src)} />;

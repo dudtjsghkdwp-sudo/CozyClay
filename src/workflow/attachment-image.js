@@ -10,6 +10,7 @@
  * Anything under it is sent verbatim: no re-encode, no generation loss.
  */
 import { fileToDataUrl, imageFileFromTransfer } from "./clipboard-image.js";
+import { isReferenceMedia, referenceFileToStill } from "../reference-media.js";
 
 export const ATTACHMENT_MAX_COUNT = 4;
 export const ATTACHMENT_MAX_DIMENSION = 1600;
@@ -19,7 +20,7 @@ export const ATTACHMENT_JPEG_QUALITY = 0.85;
  * rest here rather than letting the sidecar reject a turn the author sent. */
 const ATTACHMENT_TYPES = Object.freeze(["image/png", "image/jpeg", "image/webp"]);
 export const ATTACHMENT_LIMIT_NOTICE = "Up to 4 images per message";
-export const ATTACHMENT_TYPE_NOTICE = "Attach a PNG, JPEG or WebP image";
+export const ATTACHMENT_TYPE_NOTICE = "Attach an image or a video file";
 export const ATTACHMENT_FAILED_NOTICE = "That image could not be attached";
 
 const EXTENSION_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
@@ -57,7 +58,9 @@ export function attachmentFilesFromTransfer(transfer) {
 	const images = [];
 	let unsupported = 0;
 	for (const file of candidates) {
-		if (attachmentType(file)) images.push(file);
+		// Any picture or video is accepted; non-PNG/JPEG/WebP files are
+		// converted to a still in attachmentFromFile.
+		if (attachmentType(file) || isReferenceMedia(file)) images.push(file);
 		else if (String(file?.type ?? "").startsWith("image/")) unsupported += 1;
 	}
 	return { images, unsupported };
@@ -155,9 +158,11 @@ export function attachmentName(file) {
  * media type is the resolved one: a file dragged in without a type would
  * otherwise be labelled PNG whatever its bytes are. */
 export async function attachmentFromFile(file, options = {}) {
-	const { readDataUrl = fileToDataUrl, ...shrink } = options;
+	const { readDataUrl = fileToDataUrl, toStill = referenceFileToStill, ...shrink } = options;
+	const name = attachmentName(file);
+	if (!attachmentType(file) && isReferenceMedia(file)) file = await toStill(file);
 	const type = attachmentType(file) ?? "image/png";
 	const read = await readDataUrl(file);
 	const raw = read.startsWith(`data:${type};`) ? read : `data:${type};${read.slice(read.indexOf(";") + 1)}`;
-	return { dataUrl: await shrinkAttachmentDataUrl(raw, shrink), name: attachmentName(file) };
+	return { dataUrl: await shrinkAttachmentDataUrl(raw, shrink), name };
 }

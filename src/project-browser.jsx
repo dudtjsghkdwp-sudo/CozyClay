@@ -20,7 +20,7 @@ import "./project-browser.css";
 const APP_VERSION = packageInfo.version;
 // The "+" card is the one blank entry: an empty stage under a fresh name (no
 // starterId, so Create takes the blank path). Its preview is the blank-stage render.
-const NEW_PROJECT = Object.freeze({ id: "new-project", thumbId: "blank-stage", kind: "blank", defaultName: "Untitled Project", get name() { return ko("New project", "새 프로젝트"); }, get description() { return ko("Start from an empty stage.", "빈 무대에서 시작합니다."); } });
+const NEW_PROJECT = Object.freeze({ id: "new-project", thumbId: "blank-stage", kind: "blank", get defaultName() { return ko("Untitled Project", "제목 없는 프로젝트"); }, get name() { return ko("New project", "새 프로젝트"); }, get description() { return ko("Start from an empty stage.", "빈 무대에서 시작합니다."); } });
 
 // The two project modes the New view offers.
 // Storyboard starts from an empty stage only; Animation also offers the starters.
@@ -61,7 +61,7 @@ function sampleTemplate(scene) {
 	};
 }
 
-export function ProjectNameDialog({ open, initialName = "My Project", onCancel, onSubmit }) {
+export function ProjectNameDialog({ open, initialName = ko("My Project", "내 프로젝트"), onCancel, onSubmit }) {
 	const [value, setValue] = useState(initialName);
 	useEffect(() => {
 		if (!open) return;
@@ -77,7 +77,7 @@ export function ProjectNameDialog({ open, initialName = "My Project", onCancel, 
 	if (!open) return null;
 	const submit = (event) => {
 		event.preventDefault();
-		const name = value.trim() || "My Project";
+		const name = value.trim() || ko("My Project", "내 프로젝트");
 		onSubmit(name);
 	};
 	return (
@@ -361,8 +361,8 @@ export default function ProjectBrowser({ currentName, onOpen, onOpenFile, onNew,
 							<span>{ko("Frame rate", "프레임 레이트")}</span>
 							<span className="v2-start-select-wrap">
 								<select aria-label={ko("Frame rate", "프레임 레이트")} value={frameRate} onChange={(event) => setFrameRate(event.target.value)}>
-									<option value="24">24 fps</option>
-									<option value="30">30 fps</option>
+									<option value="24">{ko("24 fps", "초당 24프레임")}</option>
+									<option value="30">{ko("30 fps", "초당 30프레임")}</option>
 								</select>
 							</span>
 						</label>
@@ -370,8 +370,8 @@ export default function ProjectBrowser({ currentName, onOpen, onOpenFile, onNew,
 							<span>{ko("Units", "단위")}</span>
 							<span className="v2-start-select-wrap">
 								<select aria-label={ko("Units", "단위")} value={units} onChange={(event) => setUnits(event.target.value)}>
-									<option value="Meters">Meters</option>
-									<option value="Feet">Feet</option>
+									<option value="Meters">{ko("Meters", "미터")}</option>
+									<option value="Feet">{ko("Feet", "피트")}</option>
 								</select>
 							</span>
 						</label>
@@ -410,3 +410,4 @@ function RecentList({ entries, currentName, onOpen, onRemove, compact = false })
 		</div>
 	);
 }
+
